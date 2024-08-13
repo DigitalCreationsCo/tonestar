@@ -1,14 +1,14 @@
 import pino from 'pino';
 
-import { Env } from './Env.mjs';
+import { env } from './env';
 
 let options = {};
 
-if (Env.LOGTAIL_SOURCE_TOKEN) {
+if (env.LOGTAIL_SOURCE_TOKEN) {
   options = {
     transport: {
       target: '@logtail/pino',
-      options: { sourceToken: Env.LOGTAIL_SOURCE_TOKEN },
+      options: { sourceToken: env.LOGTAIL_SOURCE_TOKEN },
     },
   };
 } else {
