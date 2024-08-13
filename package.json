@@ -2,7 +2,7 @@
   "name": "kickstart-saas",
   "version": "0.1.0",
   "scripts": {
-    "dev": "next dev",
+    "dev": "NEXT_PUBLIC_APP_URL=http://localhost:3000 next dev",
     "build": "next build",
     "build-stats": "cross-env ANALYZE=true yarn build",
     "start": "next start",
