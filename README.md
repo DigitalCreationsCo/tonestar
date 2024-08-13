@@ -1,8 +1,7 @@
 This is a [Next.js](https://nextjs.org/) project bootstrapped with [`create-next-app`](https://github.com/vercel/next.js/tree/canary/packages/create-next-app).
 
-## Getting Started
 
-### Setup
+## Project Setup
 
 Clone the repository or download the project files.
 
@@ -46,15 +45,15 @@ It will create or update a `.env` file in your project root with these configura
 ### After Running the Wizard
 
 - The wizard will create or update a `.env` file with your configurations.
-- Make sure to add `.env` to your `.gitignore` file if you're using git, to keep your secrets safe.
+- `.env` has been added to `.gitignore` file if you're using git, to keep your secrets safe.
 - You may need to restart your application for the changes to take effect.
 
-## Troubleshooting
+### Troubleshooting
 
 - If you encounter permission issues when trying to run the script, ensure you have the necessary permissions to execute files in the project directory.
 - If you're on Windows and not using WSL, consider using Git Bash or another Bash-compatible shell to run the script.
 
-## Customizing the Wizard
+### Customizing the Wizard
 
 If you need to add more configuration options:
 
@@ -62,11 +61,7 @@ If you need to add more configuration options:
 2. Add new prompts and update the `.env` file sections as needed.
 3. Save your changes.
 
-## Support
-
-If you encounter any issues or have questions about the configuration process, please open an issue in the project repository or contact the project maintainer.
-
-Happy coding!
+## Development
 
 First, run the development server:
 
@@ -80,7 +75,7 @@ You can start editing the page by modifying `app/page.tsx`. The page auto-update
 
 This project uses [`next/font`](https://nextjs.org/docs/basic-features/font-optimization) to automatically optimize and load Inter, a custom Google Font.
 
-## Learn More
+### Learn More
 
 To learn more about Next.js, take a look at the following resources:
 
@@ -95,4 +90,8 @@ The easiest way to deploy your Next.js app is to use the [Vercel Platform](https
 
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/deployment) for more details.
 
+## Support
 
+If you encounter any issues or have questions about the configuration process, please open an issue in the project repository or contact the project maintainer.
+
+Happy Building!
