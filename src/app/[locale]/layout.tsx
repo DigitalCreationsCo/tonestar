@@ -4,6 +4,9 @@ import "@/styles/globals.css";
 import { AllLocales } from "@/lib/App";
 import { NextIntlClientProvider, useMessages } from "next-intl";
 import { notFound } from "next/navigation";
+import Header from "@/components/header"
+import { SessionProvider } from "next-auth/react"
+import { Toaster } from "@/components/ui/toaster"
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -48,13 +51,17 @@ export default function RootLayout( props: Readonly<{
   return (
     <html lang={props.params.locale}>
       <body className={`${inter.className} bg-background text-foreground antialiased`}>
+        <SessionProvider>
           <NextIntlClientProvider
             locale={props.params.locale}
             messages={messages}
-          >
+            >
+            <Header />
            {props.children}
+           <Toaster />
           </NextIntlClientProvider>
-        </body>
+        </SessionProvider>
+      </body>
     </html>
   );
 }

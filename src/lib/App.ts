@@ -3,7 +3,8 @@ import { LocalePrefix } from "next-intl/routing";
 const localePrefix: LocalePrefix = 'as-needed';
 
 export const App = {
-  name: 'SaaS Template',
+  name: 'AI SAAS TEMPLATE',
+  description: "Build an AI product with production-grade features out of the box",
   locales: [
     {
       id: 'en',

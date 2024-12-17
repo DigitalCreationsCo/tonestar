@@ -9,5 +9,6 @@ const bundleAnalyzer = withBundleAnalyzer({
 
 /** @type {import('next').NextConfig} */
 export default bundleAnalyzer(
-    withNextIntlConfig({})
+    withNextIntlConfig({
+    })
 );
