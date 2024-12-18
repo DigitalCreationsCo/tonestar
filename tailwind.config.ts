@@ -1,7 +1,6 @@
 import type { Config } from "tailwindcss"
 
 const config = {
-  darkMode: ["class"],
   content: [
     './pages/**/*.{ts,tsx}',
     './components/**/*.{ts,tsx}',
@@ -67,10 +66,16 @@ const config = {
           from: { height: "var(--radix-accordion-content-height)" },
           to: { height: "0" },
         },
+        hover: {
+          '0%': { transform: 'translate(200px, 450px)' },
+          '50%': { transform: 'translate(180px, 425px)' },
+          '100%': { transform: 'translate(200px, 450px)' },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
+        hover: 'hover 12s ease-in-out infinite',
       },
     },
   },

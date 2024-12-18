@@ -8,18 +8,20 @@ interface AccountLayoutProps {
 export default function AccountLayout({ children }: AccountLayoutProps) {
   return (
     <>
-    ACCOUNT LAYOUT
-      {/* <Navbar />
-      <div className="flex overflow-hidden pt-16 h-full">
+      <div className=''>
+      ACCOUNT LAYOUT
+        {/* <Navbar />
+        <div className="flex overflow-hidden pt-16 h-full">
         <Sidebar />
         <div className="relative h-full w-full overflow-y-auto lg:ml-64">
-          <main>
-            <div className="flex h-screen w-full justify-center">
-              <div className="w-3/4 px-6 py-6 ">{children}</div>
-            </div>
-          </main>
+        <main>
+        <div className="flex h-screen w-full justify-center">
         </div>
-      </div> */}
+        </main>
+        </div>
+        </div> */}
+        <div className="px-6 py-6 bg-blue-100">{children}</div>
+      </div>
     </>
   );
 }

@@ -1,10 +1,10 @@
 import { LocalePrefix } from "next-intl/routing";
-
+import packageJson from '../../package.json'
 const localePrefix: LocalePrefix = 'as-needed';
 
 export const App = {
-  name: 'AI SAAS TEMPLATE',
-  description: "Build an AI product with production-grade features out of the box",
+  name: packageJson.displayName,
+  description: packageJson.description, 
   locales: [
     {
       id: 'en',

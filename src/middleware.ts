@@ -11,7 +11,14 @@ const intlMiddleware = createMiddleware({
     defaultLocale: App.defaultLocale,
 });
 
-const publicPages = ['/', '/signin', '/signup'];
+const publicPages = [
+    '.',
+    '/', 
+    '/signin', 
+    '/signup',
+    '/home',
+    '/api/*'
+];
 
 // Create the auth middleware
 const { auth } = NextAuth(authConfig)

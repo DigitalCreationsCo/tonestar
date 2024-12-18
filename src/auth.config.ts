@@ -9,9 +9,10 @@ export default {
       password: { label: "Password", type: "password" }
     },
     async authorize(credentials) {
+      console.debug('authorize credentials', credentials)
       // This is where you would validate the credentials
       // For testing purposes, we'll accept any credentials
-      if (credentials?.username && credentials?.password) {
+      if (true) {
         return {
           id: "1",
           name: credentials.username,
