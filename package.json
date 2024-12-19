@@ -17,6 +17,7 @@
     "@audio-samples/piano-release": "^1.0.5",
     "@audio-samples/piano-velocity6": "^1.0.5",
     "@auth/unstorage-adapter": "^2.7.4",
+    "@google/generative-ai": "^0.21.0",
     "@hookform/resolvers": "^3.9.0",
     "@next/bundle-analyzer": "~14.2.5",
     "@radix-ui/react-accordion": "^1.2.0",

@@ -67,15 +67,21 @@ const config = {
           to: { height: "0" },
         },
         hover: {
-          '0%': { transform: 'translate(200px, 450px)' },
-          '50%': { transform: 'translate(180px, 425px)' },
-          '100%': { transform: 'translate(200px, 450px)' },
+          '0%': { transform: 'translate(20px, 0px)' },
+          '50%': { transform: 'translate(-20px 700px) scale(150%)' },
+          '100%': { transform: 'translate(20px, 0px)' },
         },
+        "gradient-outline": {
+          '0%': { 'border-image-source': 'linear-gradient(90deg, #1e3a8a, #3b82f6, #1e3a8a)' },
+          '50%': { 'border-image-source': 'linear-gradient(90deg, #3b82f6, #1e3a8a, #3b82f6)' },
+          '100%': { 'border-image-source': 'linear-gradient(90deg, #1e3a8a, #3b82f6, #1e3a8a)' },
+        }
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
-        hover: 'hover 12s ease-in-out infinite',
+        hover: 'hover 24s ease-in-out infinite',
+        "gradient-outline": "gradient-outline 3s infinite linear",
       },
     },
   },

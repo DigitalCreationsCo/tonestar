@@ -7,6 +7,7 @@ import { notFound } from "next/navigation";
 import Header from "@/components/header"
 import { SessionProvider } from "next-auth/react"
 import { Toaster } from "@/components/ui/toaster"
+import { ToastProvider } from "@/components/ui/toast";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -57,8 +58,8 @@ export default function RootLayout( props: Readonly<{
             messages={messages}
             >
             <Header />
-           {props.children}
-           <Toaster />
+            {props.children}
+            <Toaster />
           </NextIntlClientProvider>
         </SessionProvider>
       </body>

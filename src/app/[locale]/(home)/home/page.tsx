@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, DragEventHandler, DragEvent } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -8,7 +8,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Slider } from '@/components/ui/slider';
 import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
-import { Music, Plus, Trash2, Play, Pause, Volume2, Save } from 'lucide-react';
+import { Music, Plus, Trash2, Play, Pause, Volume2, Save, X } from 'lucide-react';
 import * as ChordLib from '@tonaljs/chord';
 import type { Chord } from '@tonaljs/chord';
 import pedalSamples from '@audio-samples/piano-pedals';
@@ -21,7 +21,10 @@ import debounce from 'lodash/debounce';
 import { App } from '@/lib/App';
 import { LLMQuery, TonestarAiRequest, TonestarAiResponse } from '@/lib/llmClient';
 import { getEnv } from "@/components/auth/actions";
+import { toast } from '@/hooks/use-toast';
+import { chordList } from '@/lib/chordList';
 // import { Piano } from '@tonejs/piano';
+import { Progress } from '@/components/ui/progress';
 
 const llmPromise = LLMQuery.getInstance(getEnv)
 
@@ -319,7 +322,7 @@ const useAudioEngine = () => {
     };
     
     // Helper function to load samples individually
-    const loadSamplesIndividually = (samples, sampleType) => {
+    const loadSamplesIndividually = (samples: any[], sampleType: string) => {
       return new Promise((resolve, reject) => {
         const samplePromises: any[] = [];
     
@@ -344,9 +347,9 @@ const useAudioEngine = () => {
     
         // Wait for all sample files to finish loading
         Promise.all(samplePromises)
-          .then(() => {
+          .then((ok) => {
             console.debug(`${sampleType} loaded successfully`);
-            resolve();
+            resolve(ok);
           })
           .catch((error) => {
             console.error(`Error loading ${sampleType}:`, error);
@@ -500,24 +503,6 @@ const useAudioEngine = () => {
   return { playChord, stopAllNotes, isLoaded, startAudioContext };
 };
 
-// IndexedDB setup
-const initDB = (): Promise<IDBDatabase> => {
-  return new Promise((resolve, reject) => {
-    const request = indexedDB.open('SongWriterDB', 1);
-    
-    request.onerror = () => reject(request.error);
-    
-    request.onupgradeneeded = (event) => {
-      const db = (event?.target as any)?.result;
-      if (!db.objectStoreNames.contains('songs')) {
-        db.createObjectStore('songs', { keyPath: 'id' });
-      }
-    };
-    
-    request.onsuccess = () => resolve(request.result);
-  });
-};
-
 const GRID_SIZE = 16; // 16th note grid
 const DEFAULT_TEMPO = 120;
 
@@ -592,11 +577,11 @@ const SongWriter = () => {
   const [parsedChords, setParsedChords] = useState<Set<Chord>>(new Set());
   const [sections, setSections] = useState<Section[]>([]);
   const [llm, setLlm] = useState<LLMQuery | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
 
   const [tempo, setTempo] = useState(DEFAULT_TEMPO);
   const [songStyle, setSongStyle] = useState('pop');
   const [barArrangements, setBarArrangements] = useState({});
-  const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const [db, setDB] = useState<IDBDatabase | null>(null);
@@ -609,7 +594,14 @@ const SongWriter = () => {
   const [currentChordIndex, setCurrentChordIndex] = useState(0);
   const [audioInitialized, setAudioInitialized] = useState(false);
 
+
   const { playChord, stopAllNotes, isLoaded, startAudioContext } = useAudioEngine();
+
+  const removeParsedChord = (index: number) => {
+    const chordList = Array.from(parsedChords.values())
+    chordList.splice(index)
+    setParsedChords(new Set(chordList))
+  }
 
   // Initialize audio on first play attempt
   const handleFirstPlay = async () => {
@@ -691,9 +683,8 @@ const SongWriter = () => {
         setIsLoading(false);
         return response;
       } catch (error) {
-        console.error("Error querying LLM:", error);
         setIsLoading(false);
-        return;
+        throw new Error("Error querying LLM:", error.message)
       }
     }
   };
@@ -707,9 +698,10 @@ const SongWriter = () => {
         setIsLoading(false);
         return response;
       } catch (error) {
-        console.error("Error querying LLM:", error);
         setIsLoading(false);
-        return;
+        console.error("generate song error:", error);
+        toast({ description: "Error generating song." })
+        throw new Error("Error generating song:", error.message)
       }
     }
   };
@@ -823,7 +815,7 @@ const NoteSelector = ({ setSelectedChord }: any) => {
   }, [userNotes]);
 
   // Handle chord selection
-  const handleChordSelection = (chord) => {
+  const handleChordSelection = (chord: Chord) => {
     chord.rootDegree = chord.rootDegree || 3; // Get the root degree of the selected chord
     setSelectedChord(chord);
     console.debug(`Selected chord: ${chord}`);
@@ -876,7 +868,7 @@ const ChordSelector = ({ setSelectedChord }: any) => {
   }, [userChord]);
 
   // Handle chord selection
-  const handleChordSelection = (chord) => {
+  const handleChordSelection = (chord: Chord) => {
     chord.rootDegree = chord.rootDegree || 3; // Get the root degree of the selected chord
     setSelectedChord(chord);
     console.debug(`Selected chord: ${chord}`);
@@ -912,7 +904,7 @@ const ChordSelector = ({ setSelectedChord }: any) => {
   );
 };
 
-  const getMoodFromText = (text) => {
+  const getMoodFromText = (text: string) => {
     const text_lower = text.toLowerCase();
     if (text_lower.includes('happy') || text_lower.includes('joyful') || text_lower.includes('upbeat')) {
       return 'happy';
@@ -923,7 +915,8 @@ const ChordSelector = ({ setSelectedChord }: any) => {
     }
   };
 
-  const generateChords = async (idea, baseChords, type) => {
+  const generateChords = async (idea: string, baseChords: Chord[], type: string) => {
+    try {
     console.debug(`generateChords idea ${idea}`)
     console.debug(`generateChords baseChords`, baseChords)
     console.debug(`generateChords type ${type}`)
@@ -941,7 +934,7 @@ const ChordSelector = ({ setSelectedChord }: any) => {
     })
     console.debug(`airesponse `, a);
 
-    const chordNames = a!.output.song_structure_analysis.chord_names
+    const chordNames = a!.song_structure_analysis.sections[0].chords
     
     // If we have valid initial chords, try to match the key
     // const selectedProgression = progressions[Math.floor(Math.random() * progressions.length)];
@@ -955,16 +948,27 @@ const ChordSelector = ({ setSelectedChord }: any) => {
 
     // return selectedProgression.join(' - ');
     return chordNames.join(' - ')
+    } catch (error: any) {
+      toast({ description: "Error generating chords." })
+      console.debug(`Error generating chords `, error)
+      throw new Error(`Error generating chords.`)
+    }
   };
 
   const handleGenerate = async () => {
-    const newSection: Section = {
-      type: 'verse',
-      chords: await generateChords(songIdea, parsedChords, 'verse'),
-      expanded: true
-    };
-    console.debug(`new section `, newSection);
-    addSection(newSection)
+    try {
+
+      const newSection: Section = {
+        type: 'verse',
+        chords: await generateChords(songIdea, Array.from(parsedChords.values()), 'verse'),
+        expanded: true
+      };
+      console.debug(`new section `, newSection);
+      addSection(newSection)
+    }
+    catch (error){
+      console.error(`handleGenerate error: `, error)
+    }
   };
 
   const addSection = ({ type= 'verse', chords= '', expanded = false }) => {
@@ -988,34 +992,45 @@ const ChordSelector = ({ setSelectedChord }: any) => {
   };
 
   // Render chord details
-  const ChordDetails = ({ chord }) => {
+  const ChordDetails = ({ chord, removeChord, className }: { chord: Chord, removeChord?: () => void, className?: any }) => {
     if (!chord || chord.empty) return null;
     return (
-      <Card>
+      <Card className={className}>
         <CardHeader>
           <CardTitle className='w-full flex grow justify-between items-center'>
-            {chord.symbol}
             <Button
-              className='rounded-full'
               size="sm"
               variant="ghost"
               onClick={() => playChord(chord, 1)}
               disabled={!isLoaded}
-            >
+              className='text-2xl font-semibold leading-none tracking-tight rounded-lg transition-none'
+              >
+              {chord.symbol}
               <Volume2 className="w-5 h-5" />
             </Button>
+            { removeChord &&
+              <Button 
+                variant="ghost" 
+                size="sm"
+                onClick={removeChord}
+                className="ml-auto rounded-full transition-none"
+              >
+                <X className="w-4 h-4" />
+              </Button>
+            }
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <p>Notes: {chord.notes.join(', ')}</p>
-          <p>Quality: {chord.quality}</p>
-          <p>Type: {chord.type}</p>
+          {/* <p>{chord.type}</p> */}
+          <p>{chord.notes.join(', ')}</p>
+          {/* <p>quality: {chord.quality}</p> */}
         </CardContent>
       </Card>
     );
   };
 
   // Auto-save functionality
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   const saveToDB = useCallback(
     debounce(async (data: any) => {
       if (!db) return;
@@ -1045,12 +1060,20 @@ const ChordSelector = ({ setSelectedChord }: any) => {
 
   // Bar arrangement component
   const BarArrangement = ({ sectionId }: any) => {
-    const [chords, setChords] = useState<ChordDraggableType[]>([]);
+    const [chords, setChords] = useState<ChordDraggableType[]>(sections[sectionId].chords.split(' - ').map((chord, index) => ({ id: `palette-${chord}-${index}`, symbol: chord, position: 0 })));
     
-    const onDragEnd = (result) => {
-      if (!result.destination) return;
-      
-      const { source, destination } = result;
+    const onDragEnd = (result: any) => {
+
+      const { destination, source, draggableId } = result;
+
+      if (!destination) {
+        return; // No drop destination
+      }      
+
+      if (destination.droppableId === source.droppableId && destination.index === source.index) {
+        return; // No change in position
+      }
+
       const newChords = Array.from<ChordDraggableType>(chords);
       
       if (source.droppableId === 'chord-palette') {
@@ -1181,7 +1204,7 @@ const ChordSelector = ({ setSelectedChord }: any) => {
 
     console.debug(`airesponse `, airesponse);
 
-    const newSections = airesponse!.output.song_structure_analysis.sections.map(section => ({
+    const newSections = airesponse!.song_structure_analysis.sections.map(section => ({
       type: section.name,
       chords: section.chords.join(' - '),
       expanded: false,
@@ -1199,16 +1222,43 @@ const ChordSelector = ({ setSelectedChord }: any) => {
     setGeneratedSong(newSections)
   };
 
+  const textarea = document.getElementById("idea-input");
+  // Add an event listener to the textarea for the 'keydown' event
+  textarea?.addEventListener("keydown", function(event) {
+    // Check if the pressed key is 'Enter' (key code 13)
+    if (event.key === "Enter") {
+      event.preventDefault();  // Prevents the default 'Enter' behavior (new line in the textarea)
+      textarea.blur();  // Removes focus from the textarea (blurs it)
+    }
+  });
+
   return (
     <>
-    <div className="max-w-3xl mx-auto p-4 space-y-4">
-    <div className="before:animate-hover relative gap-6 flex-col z-[-1] flex place-items-center before:fixed before:h-1/2 before:w-full before:translate-x-1/2 before:translate-y-1/2 before:rounded-full before:bg-gradient-radial before:from-white before:to-transparent before:content-[''] after:absolute after:-z-20 after:h-1/2 after:w-full after:translate-x-1/3 after:bg-gradient-conic after:from-sky-200 after:via-blue-200 before:blur-xl after:blur-xl after:content-[''] before:dark:bg-gradient-to-br before:dark:from-transparent before:dark:to-blue-700 before:dark:opacity-20 after:dark:from-sky-900 after:dark:via-[#0141ff] after:dark:opacity-40 sm:before:w-[440px] sm:after:w-[240px] before:lg:h-1/2"></div>
-      <Card className="backdrop-blur-lg bg-secondary/20">
+    <div className="before:animate-hover relative gap-6 flex-col z-[-1] flex place-items-center before:fixed before:h-1/2 before:w-full before:translate-x-1/2 before:translate-y-1/2 before:rounded-full before:bg-gradient-radial before:from-white before:to-transparent before:content-[''] after:absolute after:-z-20 after:h-1/2 after:w-full after:translate-x-1/3 after:bg-gradient-conic after:from-orange-200 after:via-orange-200 before:blur-xl after:blur-xl after:content-[''] before:dark:bg-gradient-to-br before:dark:from-transparent before:dark:to-orange-700 before:dark:opacity-20 after:dark:from-orange-900 after:dark:via-[#0141ff] after:dark:opacity-40 sm:before:w-[440px] sm:after:w-[240px] before:lg:h-1/2"></div>
+    <div className="before:animate-hover relative gap-6 flex-col z-[-1] flex place-items-center before:fixed before:h-1/2 before:w-full before:translate-x-1/2 before:translate-y-1/2 before:rounded-full before:bg-gradient-radial before:from-white before:to-transparent before:content-[''] after:absolute after:-z-20 after:h-1/2 after:w-full after:translate-x-1/3 after:bg-gradient-conic after:from-orange-200 after:via-orange-200 before:blur-xl after:blur-xl after:content-[''] before:dark:bg-gradient-to-br before:dark:from-transparent before:dark:to-orange-700 before:dark:opacity-20 after:dark:from-orange-900 after:dark:via-[#0141ff] after:dark:opacity-40 sm:before:w-[440px] sm:after:w-[240px] before:lg:h-1/2"></div>
+    <div className="mx-auto p-4 space-y-4 md:flex gap-10 justify-end grid">
+      
+      <div className="grid grid-cols-3 md:grid-cols-2 overflow-y-scoll row-start-2 xl:row-start-3">
+        {(chordList as unknown as Chord[]).map((chord, index) => {
+          chord.rootDegree = chord.rootDegree || 3;
+          return <ChordDetails className="rounded-none" chord={chord} />
+          }
+        )}
+      </div>
+
+      <Card className="max-w-xl row-start-1">
         <CardHeader>
           <CardTitle className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-3">
               <Music className="w-6 h-6" />
-              {App.name}
+              <div className="flex flex-col">
+                <h1>
+                  {App.name}
+                </h1>
+                <h2 className='!text-sm text-muted-foreground font-medium tracking-wide'>
+                  {App.description}
+                  </h2>
+              </div>
             </div>
             {isSaving && (
               <div className="flex items-center text-sm text-gray-500">
@@ -1221,13 +1271,15 @@ const ChordSelector = ({ setSelectedChord }: any) => {
         <CardContent className="space-y-4">
 
           {/* Song Idea Input */}
-          <div className="space-y-2">
+          <div className="space-y-2 relative min-h-20">
             {/* <label className="text-sm font-medium">Song Idea</label> */}
             <Textarea 
+              id="idea-input"
               placeholder="Describe your song idea, mood, or theme..."
               value={songIdea}
               onChange={(e) => setSongIdea(e.target.value)}
-              className="h-24"
+              className="font-medium placeholder:text-foreground cursor-pointer focus:cursor-text z-10 bg-gradient-to-bl from-orange-950 focus:from-orange-600 focus:scale-125 transition-all relative focus:absolute"
+              // className="border-4 border-transparent outline-none focus:outline-none focus:border-transparent bg-white animate-gradient-outline resize-none"
             />
           </div>
 
@@ -1257,11 +1309,12 @@ const ChordSelector = ({ setSelectedChord }: any) => {
               max={200}
               step={1}
               onValueChange={([value]) => setTempo(value)}
+              className='cursor-pointer'
             />
           </div>
 
           <div className="space-y-2">
-            <div className="flex gap-10">
+            <div className="flex gap-4 justify-around">
                 {/* <label className="text-sm font-medium">Initial Chords (optional)</label> */}
                 {/* <Input 
                   placeholder="e.g., D Cmaj7 Am7 Fmaj7 G7"
@@ -1301,153 +1354,159 @@ const ChordSelector = ({ setSelectedChord }: any) => {
             </div>
 
             {parsedChords.size > 0 && (
-              <div className="mt-2 p-4 rounded-md">
+              <div className="mt-2 py-4 rounded-md">
+                <div className='flex items-center gap-x-6'>
                 <p className="font-medium">Chord Analysis:</p>
+                <Button onClick={() => addSection({ chords: Array.from(parsedChords.values().map(chord => chord.symbol)).join(" - ")})} variant="outline" size="sm">
+                    <Plus className="w-4 h-4 mr-2" />
+                    Add to Section
+                  </Button>
+                </div>
                 <div className="grid grid-cols-2 gap-4 mt-2">
                   {Array.from(parsedChords).map((chord, i) => {
                     console.debug(`parsedChords map `, chord)
                     return (
-                        <ChordDetails key={i} chord={chord} />
+                        <ChordDetails key={i} chord={chord} removeChord={() => removeParsedChord(i)} />
                     )}
                   )}
+                  
                 </div>
               </div>
             )}
-          </div>
-
-          {/* Section builder with bar arrangements */}
-          <div className="space-y-4">
-
-            <div className="flex items-center justify-between">
-              <h3 className="text-lg font-medium">Song Sections</h3>
-              <Button onClick={addSection} variant="outline" size="sm">
-                <Plus className="w-4 h-4 mr-2" />
-                Add Section
-              </Button>
-            </div>
-
-
-            {sections.map((section, index) => (
-              <Card key={index} className="p-4">
-                <div className="flex items-center gap-4">
-                  <Select 
-                    value={section.type}
-                    onValueChange={(value) => updateSectionType(index, value)}
-                  >
-                    <SelectTrigger className="w-32">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="verse">Verse</SelectItem>
-                      <SelectItem value="chorus">Chorus</SelectItem>
-                      <SelectItem value="bridge">Bridge</SelectItem>
-                      <SelectItem value="outro">Outro</SelectItem>
-                    </SelectContent>
-                  </Select>
-
-                  {generatedSong && (
-                    <Button 
-                      variant="outline" 
-                      size="sm"
-                      onClick={async () => {
-                        if (!audioInitialized) {
-                          await handleFirstPlay();
-                        }
-                        return isPlaying ? stopPlaying() : playProgression(generatedSong[index].chords)
-                      }}
-                      disabled={!isLoaded}
-                    >
-                      {isPlaying ? (
-                        <Pause className="w-4 h-4 mr-2" />
-                      ) : (
-                        <Play className="w-4 h-4 mr-2" />
-                      )}
-                      {isPlaying ? 'Stop' : 'Play'}
-                    </Button>
-                  )}
-                  
-                  <Button 
-                    variant="ghost" 
-                    size="sm"
-                    onClick={() => toggleExpanded(index)}
-                  >
-                    {section.expanded ? 'Hide' : 'Show'} Details
-                  </Button>
-
-                  <Button 
-                    variant="ghost" 
-                    size="sm"
-                    onClick={() => removeSection(index)}
-                    className="ml-auto"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </Button>
-                </div>
-                
-                {section.expanded && section.chords.length > 0 && (
-                  <>
-                    <div className="mt-4">
-                      <p className="font-medium">Bar Arrangement:</p>
-                      <BarArrangement sectionId={index} />
-                    </div>
-
-                    <div className="mt-4 grid grid-cols-2 gap-4">
-                      {section.chords.split(' - ').map((chord, i) => {
-                        const analysis = {...ChordLib.get(chord)};
-                        analysis.rootDegree = analysis.rootDegree || 3;
-                        console.debug(`chord analysis `, analysis)
-                        return (
-                          <div 
-                            key={i} 
-                            className={`p-2 rounded ${
-                              isPlaying && i === currentChordIndex ? 'bg-secondary' : ''
-                            }`}
-                          >
-                            <ChordDetails chord={analysis} />
-                          </div>
-                        );
-                      })}
-                    </div>
-                  
-                    {/* <div className="mt-4 p-4 rounded-md">
-                    <p className="font-medium">Generated Progression:</p>
-                    <p className="mt-2 font-mono">{generatedSong[index].chords}</p>
-                    <div className="mt-4 grid grid-cols-2 gap-4">
-                      {generatedSong[index].chords.split(' - ').map((chord, i) => {
-                        const analysis = {...ChordLib.get(chord)};
-                        analysis.rootDegree = analysis.rootDegree || 3;
-                        console.debug(`chord analysis `, analysis)
-                        return (
-                          <ChordDetails chord={analysis} />
-                        );
-                      })}
-                    </div>
-                  </div> */}
-
-                  </>
-                )}
-              </Card>
-            ))}
           </div>
 
           <div className="flex gap-4">
             <Button 
               onClick={handleGenerate} 
               className="flex-1"
-              disabled={!songIdea}
+              disabled={!songIdea || isLoading}
             >
-              Generate Section
+              {isLoading ? `Loading...` : `Generate Section`}
             </Button>
             <Button
               onClick={generateCompleteStructure}
               className="flex-1"
-              disabled={!songIdea}
+              disabled={!songIdea || isLoading}
             >
-              Generate Complete Song
+              {isLoading ? `...your next hit` : `Generate Complete Song`}
             </Button>
           </div>
         </CardContent>
       </Card>
+
+       {/* Section builder with bar arrangements */}
+      <div className="space-y-4 max-w-xl w-full row-start-2 sm:row-start-1">
+        <div className="flex items-center gap-x-6">
+          <h3 className="text-lg pl-5 font-medium">Song Sections</h3>
+          <Button onClick={addSection} variant="outline" size="sm">
+            <Plus className="w-4 h-4 mr-2" />
+            Add Section
+          </Button>
+        </div>
+        {sections.map((section, index) => (
+          <Card key={index} className="p-4">
+            <div className="flex items-center gap-4">
+              <Select 
+                value={section.type}
+                defaultValue={section.type}
+                onValueChange={(value) => updateSectionType(index, value)}
+              >
+                <SelectTrigger className="w-32">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="verse">Verse</SelectItem>
+                  <SelectItem value="chorus">Chorus</SelectItem>
+                  <SelectItem value="bridge">Bridge</SelectItem>
+                  <SelectItem value="outro">Outro</SelectItem>
+                </SelectContent>
+              </Select>
+
+              {/* {generatedSong && ( */}
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={async () => {
+                    if (!audioInitialized) {
+                      await handleFirstPlay();
+                    }
+                    return isPlaying ? stopPlaying() : playProgression(sections[index].chords)
+                  }}
+                  disabled={!isLoaded || !section.chords}
+                >
+                  {isPlaying ? (
+                    <Pause className="w-4 h-4 mr-2" />
+                  ) : (
+                    <Play className="w-4 h-4 mr-2" />
+                  )}
+                  {isPlaying ? 'Stop' : 'Play'}
+                </Button>
+              {/* )} */}
+              
+              <Button 
+                variant="ghost" 
+                size="sm"
+                onClick={() => toggleExpanded(index)}
+                disabled={!isLoaded || !section.chords}
+              >
+                {section.expanded ? 'Hide' : 'Show'} Details
+              </Button>
+
+              <Button 
+                variant="ghost" 
+                size="sm"
+                onClick={() => removeSection(index)}
+                className="ml-auto"
+              >
+                <Trash2 className="w-4 h-4" />
+              </Button>
+            </div>
+            
+            {section.expanded && section.chords.length > 0 && (
+              <>
+                {/* <div className="mt-4">
+                  <p className="font-medium">Bar Arrangement:</p>
+                  <BarArrangement sectionId={index} />
+                </di  v> */}
+
+                <div className="mt-4 grid grid-cols-2 gap-4">
+                  {section.chords.split(' - ').map((chord, i) => {
+                    const analysis = {...ChordLib.get(chord)};
+                    analysis.rootDegree = analysis.rootDegree || 3;
+                    console.debug(`chord analysis `, analysis)
+                    return (
+                      <div 
+                        key={i} 
+                        className={`p-2 rounded ${
+                          isPlaying && i === currentChordIndex ? 'bg-secondary' : ''
+                        }`}
+                      >
+                        <ChordDetails chord={analysis} />
+                      </div>
+                    );
+                  })}
+                </div>
+              
+                {/* <div className="mt-4 p-4 rounded-md">
+                <p className="font-medium">Generated Progression:</p>
+                <p className="mt-2 font-mono">{generatedSong[index].chords}</p>
+                <div className="mt-4 grid grid-cols-2 gap-4">
+                  {generatedSong[index].chords.split(' - ').map((chord, i) => {
+                    const analysis = {...ChordLib.get(chord)};
+                    analysis.rootDegree = analysis.rootDegree || 3;
+                    console.debug(`chord analysis `, analysis)
+                    return (
+                      <ChordDetails chord={analysis} />
+                    );
+                  })}
+                </div>
+              </div> */}
+
+              </>
+            )}
+          </Card>
+        ))}
+      </div>
     </div>
     </>
   );
