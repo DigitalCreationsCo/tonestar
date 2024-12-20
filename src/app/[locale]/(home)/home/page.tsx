@@ -16,16 +16,17 @@ import type { Chord } from '@tonaljs/chord';
 // import releaseSamples from '@audio-samples/piano-release';
 // import harmonicSamples from '@audio-samples/piano-harmonics';
 import * as Tone from 'tone';
-import { Piano } from '@/piano';
+// import { Piano } from '@/piano';
 import debounce from 'lodash/debounce';
 import { App } from '@/lib/App';
 import { LLMQuery, TonestarAiRequest, TonestarAiResponse } from '@/lib/llmClient';
 import { getEnv } from "@/components/auth/actions";
 import { toast } from '@/hooks/use-toast';
 import { chordList } from '@/lib/chordList';
-// import { Piano } from '@tonejs/piano';
+import { Piano } from '@tonejs/piano';
 import { Progress } from '@/components/ui/progress';
 import { DBClient } from '@/lib/client';
+import { fstat, fsync } from 'fs';
 
 const llmPromise = LLMQuery.getInstance(getEnv)
 
@@ -195,27 +196,6 @@ const musicalNotes: ReadonlySet<string> = new Set([
 
 const splitSpaceOrComma = (input:string) => input.split(/[ ,]+/)
 
-// function toOgg(urlMap) {
-//   console.debug(`to ogg url map `, urlMap);
-
-//   // Assuming all your audio files are in the /samples folder
-//   const audioFolder = 'samples';
-
-//   Object.keys(urlMap).forEach(key => {
-//     console.debug(`key ${key}`);
-    
-//     // If the file doesn't end with .ogg, add the .ogg extension
-//     if (!urlMap[key].endsWith('.ogg')) {
-//       urlMap[key] = `${audioFolder}/${urlMap[key]}.ogg`;
-//     } else {
-//       urlMap[key] = `${audioFolder}/${urlMap[key]}`; // Ensure correct path handling
-//     }
-//   });
-
-//   console.debug(`url map after: `, urlMap);
-// }
-
-// Audio Engine with Tone.js Piano
 const useAudioEngine = () => {
   const [piano, setPiano] = useState<Piano | null>(null);
   const [audioContextStarted, setAudioContextStarted] = useState(false);
@@ -231,31 +211,32 @@ const useAudioEngine = () => {
         const db = await DBClient.getInstance()
         console.debug('Database instance initialized:', db);
 
-        let piano = await db.readById<Piano>('SAMPLES_STORE', {id: 'samples'})
-        console.debug(`cached piano from db `, piano)
+        let samples = await db.readById('SAMPLES_STORE', {id: 'samples'})
+        console.debug(`cached piano from db `, samples)
+        let piano
+        if (!samples) {
+          console.debug(`no samples `, samples)
+          // const response = await fetch(`api/samples`, { headers: { 'content-type': 'application/json' }});
+          // if (!response.ok) {
+          //   throw new Error(await response.text())
+          // }
+          // const samples = await (await response.json())['files']
+          piano = new Piano({ url: '/samples' , velocities: 1, release: true })
 
-        if (!piano) {
-          piano = new Piano({ velocities: 1, release: true })
           // await db.write<Piano>('SAMPLES_STORE', {...piano, id: 'piano'} as Piano & {id:string})
-          const {
-            _strings,
-            _pedal,
-            _keybed,
-            _harmonics
-          } = piano;
-
-          await db.write('SAMPLES_STORE', {
-            _strings,
-            _pedal,
-            _keybed,
-            _harmonics, 
-            id: 'samples'})
-
+          // await db.write('SAMPLES_STORE', {
+          //   samples,
+          //   id: 'samples'}
+          // )
           console.debug(`cached piano samples`)
         }
+        else { 
+          console.debug(`yes samples `, samples)
+          piano = new Piano({ velocities: 1, release: true })
+        }
         piano.toDestination();
-        console.debug(`init piano OK`);
         const loaded = await piano.load()
+        console.debug(`init piano OK`);
     
         // Check if the component is mounted before updating state
         if (mounted) {
@@ -280,9 +261,8 @@ const useAudioEngine = () => {
           samplePromises.push(
             new Promise((sampleResolve, sampleReject) => {
               try {
-                // Assuming each sample has a URL to load, replace with your actual sample path if necessary
                 const samplePath = encodeURIComponent(`samples/${sample}`);
-                console.debug(`Loading sample: ${samplePath}`);
+                console.debug(`Loading samples: ${samplePath}`);
                 new Tone.ToneAudioBuffer(samplePath, sampleResolve, sample);
                 console.debug(`Successfully loaded ${sampleType} sample: ${sample}`);
               } catch (error) {
@@ -315,66 +295,8 @@ const useAudioEngine = () => {
         piano.dispose();
       }
     };
-    // const setup = async () => {
-    //   try {
-    //     console.debug(`setup audio engine`)
-    //     console.debug('Tone')
-    //     console.debug(Tone)
-    //     let toneStart
-    //     try {
-    //       toneStart = await Tone.start();          
-    //     } catch (error) {
-    //       console.error(error)
-    //     }
-        
-    //     console.debug(`tone start ${toneStart}`)
-    //     console.debug(`start`)
-        
-    //     const pianoInstance = await initPiano();
-    //     console.debug(`piano instance `, pianoInstance)
-
-    //     if (mounted) {
-    //       setPiano(pianoInstance);
-    //       setIsLoaded(true);
-    //     }
-    //   } catch (error) {
-    //     console.error('Failed to initialize piano:', error);
-    //   }
-    // };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  // useEffect(() => {
-  //   const ctx = new (window.AudioContext || window.webkitAudioContext)();
-  //   setAudioContext(ctx);
-    
-  //   // Load piano samples
-  //   const loadSamples = async () => {
-  //     const loadedSamples = {};
-
-  //     for (const [note, url] of Object.entries(pianoSamples)) {
-  //       console.debug(`note ${note}`)
-  //       console.debug(`url ${url}`)
-
-  //       try {
-  //         const response = await fetch(encodeURIComponent(url));
-  //         const arrayBuffer = await response.arrayBuffer();
-  //         const audioBuffer = await ctx.decodeAudioData(arrayBuffer);
-  //         loadedSamples[note] = audioBuffer;
-  //       } catch (error) {
-  //         console.error(`Failed to load sample for note ${note}:`, error);
-  //       }
-  //     }
-  //     setSamples(loadedSamples);
-  //     setIsLoaded(true);
-  //   };
-
-  //   loadSamples();
-
-  //   return () => {
-  //     ctx.close();
-  //   };
-  // }, []);
 
     const startAudioContext = async () => {
       if (!audioContextStarted) {
@@ -1185,11 +1107,10 @@ const ChordSelector = ({ setSelectedChord }: any) => {
 
   return (
     <>
-    <div className="before:animate-hover relative gap-6 flex-col z-[-1] flex place-items-center before:fixed before:h-1/2 before:w-full before:translate-x-1/2 before:translate-y-1/2 before:rounded-full before:bg-gradient-radial before:from-white before:to-transparent before:content-[''] after:absolute after:-z-20 after:h-1/2 after:w-full after:translate-x-1/3 after:bg-gradient-conic after:from-orange-200 after:via-orange-200 before:blur-xl after:blur-xl after:content-[''] before:dark:bg-gradient-to-br before:dark:from-transparent before:dark:to-orange-700 before:dark:opacity-20 after:dark:from-orange-900 after:dark:via-[#0141ff] after:dark:opacity-40 sm:before:w-[440px] sm:after:w-[240px] before:lg:h-1/2"></div>
-    <div className="before:animate-hover relative gap-6 flex-col z-[-1] flex place-items-center before:fixed before:h-1/2 before:w-full before:translate-x-1/2 before:translate-y-1/2 before:rounded-full before:bg-gradient-radial before:from-white before:to-transparent before:content-[''] after:absolute after:-z-20 after:h-1/2 after:w-full after:translate-x-1/3 after:bg-gradient-conic after:from-orange-200 after:via-orange-200 before:blur-xl after:blur-xl after:content-[''] before:dark:bg-gradient-to-br before:dark:from-transparent before:dark:to-orange-700 before:dark:opacity-20 after:dark:from-orange-900 after:dark:via-[#0141ff] after:dark:opacity-40 sm:before:w-[440px] sm:after:w-[240px] before:lg:h-1/2"></div>
-    <div className="mx-auto p-4 space-y-4 md:flex gap-10 justify-end grid">
+    <div className="before:animate-hover after:animate-hover relative gap-6 flex-col z-[-1] flex place-items-center before:fixed before:h-1/2 before:w-full before:translate-x-1/2 before:translate-y-1/2 before:rounded-full before:bg-gradient-radial before:from-white before:to-transparent before:content-[''] after:absolute after:-z-20 after:h-1/2 after:w-full after:translate-x-1/3 after:bg-gradient-conic after:from-orange-200 after:via-orange-200 before:blur-xl after:blur-xl after:content-[''] before:dark:bg-gradient-to-br before:dark:from-transparent before:dark:to-orange-700 before:dark:opacity-20 after:dark:from-orange-900 after:dark:via-[#0141ff] after:dark:opacity-40 sm:before:w-[440px] sm:after:w-[240px] before:lg:h-1/2"></div>
+    <div className="mx-auto p-4 space-y-4 gap-10 justify-end border-2 grid xl:grid-cols-3 lg:grid-cols-2 grid-cols-1">
       
-      <div className="grid grid-cols-3 md:grid-cols-2 overflow-y-scoll row-start-2 xl:row-start-3">
+      <div className="pt-4 grid grid-cols-3 lg:grid-cols-2 overflow-y-scoll row-start-3 xl:row-start-1">
         {(chordList as unknown as Chord[]).map((chord, index) => {
           chord.rootDegree = chord.rootDegree || 3;
           return <ChordDetails key={index} className="rounded-none" chord={chord} />
@@ -1197,7 +1118,7 @@ const ChordSelector = ({ setSelectedChord }: any) => {
         )}
       </div>
 
-      <Card className="max-w-xl row-start-1">
+      <Card className="max-w-2xl h-fit row-start-1 place-self-center lg:place-self-auto">
         <CardHeader>
           <CardTitle className="flex items-center justify-between">
             <div className="flex items-center gap-3">
@@ -1346,8 +1267,8 @@ const ChordSelector = ({ setSelectedChord }: any) => {
       </Card>
 
        {/* Section builder with bar arrangements */}
-      <div className="space-y-4 max-w-xl w-full row-start-2 sm:row-start-1">
-        <div className="flex items-center gap-x-6">
+      <div className="space-y-4 max-w-md lg:max-w-xl w-full row-start-2 lg:row-start-1 place-self-center lg:place-self-auto">
+        <div className="flex items-center gap-x-6 place-self-end lg:place-self-auto">
           <h3 className="text-lg pl-5 font-medium">Song Sections</h3>
           <Button onClick={addSection} variant="outline" size="sm">
             <Plus className="w-4 h-4 mr-2" />
