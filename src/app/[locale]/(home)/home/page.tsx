@@ -11,10 +11,10 @@ import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
 import { Music, Plus, Trash2, Play, Pause, Volume2, Save, X } from 'lucide-react';
 import * as ChordLib from '@tonaljs/chord';
 import type { Chord } from '@tonaljs/chord';
-import pedalSamples from '@audio-samples/piano-pedals';
-import velocitySamples from '@audio-samples/piano-velocity6';
-import releaseSamples from '@audio-samples/piano-release';
-import harmonicSamples from '@audio-samples/piano-harmonics';
+// import pedalSamples from '@audio-samples/piano-pedals';
+// import velocitySamples from '@audio-samples/piano-velocity6';
+// import releaseSamples from '@audio-samples/piano-release';
+// import harmonicSamples from '@audio-samples/piano-harmonics';
 import * as Tone from 'tone';
 import { Piano } from '@/piano';
 import debounce from 'lodash/debounce';
@@ -228,88 +228,34 @@ const useAudioEngine = () => {
     // Piano initialization
     const setupPiano = async () => {
       try {
-        console.debug(`init piano`);
-        const piano = new Piano({ velocities: 1, release: true });
-        piano.toDestination();
-    
-        // // Configure pedal samples
-        // piano._pedal.samples = pedalSamples;
-        // console.debug(`piano._pedal.samples `, piano._pedal.samples);
-        // console.debug(`pedal samples `, pedalSamples);
-    
-        // piano._pedal._internalLoad = () => {
-        //   return new Promise((success) => {
-        //     console.debug("Loading pedal audio buffers...");
-    
-        //     const audioPaths = {
-        //       down1: 'pedalD1.ogg',
-        //       down2: 'pedalD2.ogg',
-        //       up1: 'pedalU1.ogg',
-        //       up2: 'pedalU2.ogg',
-        //     };
-    
-        //     piano._pedal._buffers = {};
-        //     const bufferPromises = [];
-    
-        //     // Load each pedal audio file individually
-        //     Object.entries(audioPaths).forEach(([key, path]) => {
-        //       console.debug(`Loading audio file for ${key}: ${path}`);
-        //       bufferPromises.push(
-        //         new Promise((resolve, reject) => {
-        //           try {
-        //             const sampleUrl = encodeURIComponent(`samples/${path}`)
-        //             console.debug('sampleUrl ' + sampleUrl)
+        const db = await DBClient.getInstance()
+        console.debug('Database instance initialized:', db);
 
-        //             piano._pedal._buffers[key] = new Tone.ToneAudioBuffer(sampleUrl, resolve, piano._pedal.samples);
-        //             console.debug(`Successfully loaded ${key} buffer`);
-        //           } catch (error) {
-        //             console.error(`Error loading ${key} buffer:`, error);
-        //             reject(error);
-        //           }
-        //         })
-        //       );
-        //     });
-    
-        //     // Wait for all pedal audio files to finish loading
-        //     Promise.all(bufferPromises)
-        //       .then(() => {
-        //         console.debug("All pedal audio buffers loaded successfully");
-        //         success();
-        //       })
-        //       .catch((error) => {
-        //         console.error("Error loading pedal audio buffers:", error);
-        //       });
-        //   });
-        // };
-    
-        // // Load release samples individually
-        // console.debug("Loading release samples...");
-        // await loadSamplesIndividually(releaseSamples, "releaseSamples");
-    
-        // // Load harmonic samples individually
-        // // console.debug("Loading harmonic samples...");
-        // // await loadSamplesIndividually(harmonicSamples, "harmonicSamples");
-    
-        // // Load velocity samples individually
-        // // console.debug("Loading velocity samples...");
-        // // await loadSamplesIndividually(velocitySamples, "velocitySamples");
-    
-        // // Configure other piano components
-        // console.debug("Configuring keybed samples...");
-        // piano._keybed.samples = releaseSamples;
-        // toOgg(piano._keybed._urls);
-    
-        // // console.debug("Configuring harmonics samples...");
-        // // piano._harmonics.samples = harmonicSamples;
-        // // toOgg(piano._harmonics._urls);
-    
-        // // console.debug("Configuring strings samples...");
-        // // piano._strings._strings[0].samples = velocitySamples;
-        // // toOgg(piano._strings._strings[0]._urls);
-    
-        // // Load the piano after configuring all components
-        // console.debug("Loading piano...");
-        await piano.load();
+        let piano = await db.readById<Piano>('SAMPLES_STORE', {id: 'samples'})
+        console.debug(`cached piano from db `, piano)
+
+        if (!piano) {
+          piano = new Piano({ velocities: 1, release: true })
+          // await db.write<Piano>('SAMPLES_STORE', {...piano, id: 'piano'} as Piano & {id:string})
+          const {
+            _strings,
+            _pedal,
+            _keybed,
+            _harmonics
+          } = piano;
+
+          await db.write('SAMPLES_STORE', {
+            _strings,
+            _pedal,
+            _keybed,
+            _harmonics, 
+            id: 'samples'})
+
+          console.debug(`cached piano samples`)
+        }
+        piano.toDestination();
+        console.debug(`init piano OK`);
+        const loaded = await piano.load()
     
         // Check if the component is mounted before updating state
         if (mounted) {
@@ -317,8 +263,9 @@ const useAudioEngine = () => {
           setPiano(piano);
           setIsLoaded(true);
         }
-      } catch (error) {
+      } catch (error: any) {
         console.error('Failed to initialize piano:', error);
+        toast({ description: error.message })
       }
     };
     
@@ -394,6 +341,7 @@ const useAudioEngine = () => {
     //     console.error('Failed to initialize piano:', error);
     //   }
     // };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // useEffect(() => {
@@ -466,7 +414,7 @@ const useAudioEngine = () => {
   
     const stopAllNotes = () => {
       if (!piano) return;
-      piano.releaseAll();
+      // piano.releaseAll();
     };
 
   // const playChord = (notes, duration = 2) => {
@@ -595,7 +543,6 @@ const SongWriter = () => {
   const [currentChordIndex, setCurrentChordIndex] = useState(0);
   const [audioInitialized, setAudioInitialized] = useState(false);
 
-
   const { playChord, stopAllNotes, isLoaded, startAudioContext } = useAudioEngine();
 
   const removeParsedChord = (index: number) => {
@@ -683,7 +630,7 @@ const SongWriter = () => {
         const response = await llm.sendRequest(query);
         setIsLoading(false);
         return response;
-      } catch (error) {
+      } catch (error:any) {
         setIsLoading(false);
         throw new Error("Error querying LLM:", error.message)
       }
@@ -698,7 +645,7 @@ const SongWriter = () => {
         const response = await llm.sendRequest(query);
         setIsLoading(false);
         return response;
-      } catch (error) {
+      } catch (error: any) {
         setIsLoading(false);
         console.error("generate song error:", error);
         toast({ description: "Error generating song." })
@@ -706,6 +653,15 @@ const SongWriter = () => {
       }
     }
   };
+
+  // Initialize IndexedDB
+  useEffect(() => {
+    async function initDB() {
+      const db = await DBClient.getInstance()
+      setDB(db)
+    }
+    initDB()
+  }, []);
 
   useEffect(() => {
     initializeLlmQuery(); // Initialize LLMQuery on component mount
@@ -744,11 +700,6 @@ const SongWriter = () => {
       });
     }
   }, [initialChords]);
-
-  // Initialize IndexedDB
-  useEffect(() => {
-    DBClient.getInstance().then(database => setDB(database));
-  }, []);
 
   useEffect(() => {
     console.debug(`useeffect isPlaying? ${isPlaying}`)
@@ -1043,7 +994,7 @@ const ChordSelector = ({ setSelectedChord }: any) => {
       };
       
       try {
-        const id = await db.write(songData);
+        const id = await db.write("SONGS_STORE", songData);
         setCurrentSongId(id);
       } catch (error: any) {
         setIsSaving(false);
@@ -1241,7 +1192,7 @@ const ChordSelector = ({ setSelectedChord }: any) => {
       <div className="grid grid-cols-3 md:grid-cols-2 overflow-y-scoll row-start-2 xl:row-start-3">
         {(chordList as unknown as Chord[]).map((chord, index) => {
           chord.rootDegree = chord.rootDegree || 3;
-          return <ChordDetails className="rounded-none" chord={chord} />
+          return <ChordDetails key={index} className="rounded-none" chord={chord} />
           }
         )}
       </div>
