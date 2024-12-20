@@ -25,6 +25,7 @@ import { toast } from '@/hooks/use-toast';
 import { chordList } from '@/lib/chordList';
 // import { Piano } from '@tonejs/piano';
 import { Progress } from '@/components/ui/progress';
+import { DBClient } from '@/lib/client';
 
 const llmPromise = LLMQuery.getInstance(getEnv)
 
@@ -584,8 +585,8 @@ const SongWriter = () => {
   const [barArrangements, setBarArrangements] = useState({});
   const [isSaving, setIsSaving] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
-  const [db, setDB] = useState<IDBDatabase | null>(null);
-  const [currentSongId, setCurrentSongId] = useState(null);
+  const [db, setDB] = useState<DBClient | null>(null);
+  const [currentSongId, setCurrentSongId] = useState('');
   const [generatedSong, setGeneratedSong] = useState<{
     type: string;
     chords: string;
@@ -746,7 +747,7 @@ const SongWriter = () => {
 
   // Initialize IndexedDB
   useEffect(() => {
-    initDB().then(database => setDB(database));
+    DBClient.getInstance().then(database => setDB(database));
   }, []);
 
   useEffect(() => {
@@ -1036,23 +1037,22 @@ const ChordSelector = ({ setSelectedChord }: any) => {
       if (!db) return;
       
       setIsSaving(true);
-      const transaction = db.transaction(['songs'], 'readwrite');
-      const store = transaction.objectStore('songs');
-      
       const songData = {
         id: currentSongId || Date.now(),
         ...data
       };
       
       try {
-        await store.put(songData);
-        setCurrentSongId(songData.id);
-      } catch (error) {
-        console.error('Error saving to IndexedDB:', error);
+        const id = await db.write(songData);
+        setCurrentSongId(id);
+      } catch (error: any) {
+        setIsSaving(false);
+        console.error(error);
+        toast({ description: error.message })
       } finally {
         setIsSaving(false);
       }
-    }, 1000),
+    }, 2000),
     [db, currentSongId]
   );
 
