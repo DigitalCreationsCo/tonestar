@@ -1,9 +1,7 @@
 "use client"
-
-import React, { useState, useEffect, useCallback, DragEventHandler, DragEvent } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Slider } from '@/components/ui/slider';
@@ -11,195 +9,23 @@ import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
 import { Music, Plus, Trash2, Play, Pause, Volume2, Save, X } from 'lucide-react';
 import * as ChordLib from '@tonaljs/chord';
 import type { Chord } from '@tonaljs/chord';
-// import pedalSamples from '@audio-samples/piano-pedals';
-// import velocitySamples from '@audio-samples/piano-velocity6';
-// import releaseSamples from '@audio-samples/piano-release';
-// import harmonicSamples from '@audio-samples/piano-harmonics';
 import * as Tone from 'tone';
-// import { Piano } from '@/piano';
 import debounce from 'lodash/debounce';
 import { App } from '@/lib/App';
-import { LLMQuery, TonestarAiRequest, TonestarAiResponse } from '@/lib/llmClient';
+import { LLMQuery, TonestarAiRequest } from '@/lib/llmClient';
 import { getEnv } from "@/components/auth/actions";
 import { toast } from '@/hooks/use-toast';
-import { chordList } from '@/lib/chordList';
+import { chordList } from '@/lib/chord';
 import { Piano } from '@tonejs/piano';
-import { Progress } from '@/components/ui/progress';
 import { DBClient } from '@/lib/client';
-import { fstat, fsync } from 'fs';
+import { ChordDraggableType, Section } from '@/lib/types';
+import { SelectChordByNotes } from '@/components/select-chord-by-notes';
+import { SelectChord } from '@/components/select-chord';
 
-const llmPromise = LLMQuery.getInstance(getEnv)
-
-type ChordMatchType = Partial<Chord> & {
-  isOriginal: boolean;
-  matchScore: {
-    matching: number;
-    total: number;
-    percentage: string;
-  };
-  containedScore: {
-    contained: number;
-    total: number;
-    percentage: string;
-  };
-  matchingNotes: string[];
-  relationship: string;
-}
-
-type ChordDraggableType = {
-  id: string;
-  symbol: string;
-  position: number;
-}
-const commonChords: Readonly<string[]> = [
-  'major', 'minor', '7', 'maj7', 'm7', 'dim7', 'aug', 
-  'sus4', 'sus2', '6', 'm6', '9', 'maj9', 'm9',
-  'add9', '69', 'm69', '11', 'maj11', 'min11'
-];
-
-/**
- * Gets information about a chord and all chords sharing similar notes
- * @param {string} chordName - Name of the chord (e.g., "Cmaj7", "Dm")
- * @returns {Object[]} Array of chord information objects
- */
-function getChordInfo(chordName: string) {
-  // Get the original chord information
-  const originalChord = ChordLib.get(chordName);
-  
-  // If the chord is invalid, return empty array
-  if (originalChord.empty) {
-    return [];
-  }
-
-  // Get the notes from the original chord
-  const originalNotes = new Set(originalChord.notes);
-
-  // For each note in the original chord, try it as a root with different chord types
-  const allPossibleChords = Array.from(originalNotes).flatMap(root => {
-    return commonChords.map(type => {
-      const testChord = ChordLib.getChord(type, root);
-      const testNotes = new Set(testChord.notes);
-
-      // Calculate how many notes match with the original chord
-      const matchingNotes = Array.from(originalNotes).filter(note => testNotes.has(note));
-      const containedNotes = Array.from(testNotes).filter(note => originalNotes.has(note));
-
-      return {
-        name: testChord.name,
-        symbol: testChord.symbol,
-        type: testChord.type,
-        tonic: testChord.tonic,
-        notes: testChord.notes,
-        intervals: testChord.intervals,
-        quality: testChord.quality,
-        bass: testChord.bass,
-        isOriginal: testChord.symbol === originalChord.symbol,
-        matchScore: {
-          matching: matchingNotes.length,
-          total: testChord.notes.length,
-          percentage: (matchingNotes.length / testChord.notes.length * 100).toFixed(1)
-        },
-        containedScore: {
-          contained: containedNotes.length,
-          total: originalNotes.size,
-          percentage: (containedNotes.length / originalNotes.size * 100).toFixed(1)
-        },
-        matchingNotes,
-        relationship: testChord.symbol === originalChord.symbol ? 'original' : 'related'
-      };
-    });
-  });
-
-  // Filter and sort results
-  return processChordResults(allPossibleChords);
-}
-
-/**
- * Analyzes input notes to find possible chords
- * @param {string} noteString - Space-separated string of notes (e.g., "C E G")
- * @returns {Object[]} Array of detailed chord information
- */
-function analyzeNotesToChords(inputNotes: string[]) {
-  // Split the input string into notes array
-
-  // Generate initial chord possibilities using the first note as root
-  const initialChord = ChordLib.getChord('major', inputNotes[0]);
-  
-  // Use getChordInfo to find all related chords
-  const relatedChords = getChordInfo(initialChord.symbol);
-  
-  // Add additional possibilities using other notes as roots
-  const additionalChords = inputNotes.slice(1).flatMap(root => {
-    const testChord = ChordLib.getChord('major', root);
-    return getChordInfo(testChord.symbol);
-  });
-
-  // Combine all results
-  const allChords = [...relatedChords, ...additionalChords];
-
-  // Process and filter based on input notes
-  return processChordResults(allChords, inputNotes);
-}
-
-/**
- * Helper function to process and filter chord results
- * @param {Object[]} chords - Array of chord objects
- * @param {string[]} [filterNotes] - Optional array of notes to filter by
- * @returns {Object[]} Processed and filtered chord array
- */
-function processChordResults(chords: ChordMatchType[], filterNotes: (string[] | null) = null) {
-  // Filter out chords with no matching notes
-  const relevantChords = chords.filter(chord => 
-    chord.matchScore.matching > 0 || chord.containedScore.contained > 0
-  );
-
-  // Remove duplicates based on symbol
-  const uniqueChords = Array.from(
-    new Map(relevantChords.map(chord => [chord.symbol, chord])).values()
-  );
-
-  // Sort results
-  const sortedChords = uniqueChords.sort((a, b) => {
-    if (a.isOriginal) return -1;
-    if (b.isOriginal) return 1;
-    
-    const matchDiff = b.matchScore.matching - a.matchScore.matching;
-    if (matchDiff !== 0) return matchDiff;
-    
-    return a.notes!.length - b.notes!.length;
-  });
-
-  // If filterNotes provided, filter based on those notes
-  if (filterNotes) {
-    return sortedChords.filter(chord => 
-      filterNotes.some(note => chord?.notes?.includes(note))
-    );
-  }
-
-  return sortedChords;
-}
-
-const musicalNotes: ReadonlySet<string> = new Set([
-  "A",
-  "A#",
-  "B",
-  "C",
-  "C#",
-  "D",
-  "D#",
-  "E",
-  "F",
-  "F#",
-  "G",
-  "G#",
-]);
-
-const splitSpaceOrComma = (input:string) => input.split(/[ ,]+/)
 
 const useAudioEngine = () => {
   const [piano, setPiano] = useState<Piano | null>(null);
   const [audioContextStarted, setAudioContextStarted] = useState(false);
-  const [samples, setSamples] = useState({});
   const [isLoaded, setIsLoaded] = useState(false);
 
   useEffect(() => {
@@ -235,7 +61,7 @@ const useAudioEngine = () => {
           piano = new Piano({ velocities: 1, release: true })
         }
         piano.toDestination();
-        const loaded = await piano.load()
+        await piano.load()
         console.debug(`init piano OK`);
     
         // Check if the component is mounted before updating state
@@ -250,43 +76,6 @@ const useAudioEngine = () => {
       }
     };
     
-    // Helper function to load samples individually
-    const loadSamplesIndividually = (samples: any[], sampleType: string) => {
-      return new Promise((resolve, reject) => {
-        const samplePromises: any[] = [];
-    
-        console.debug(`Loading ${sampleType}...`);
-    
-        samples.forEach((sample, index) => {
-          samplePromises.push(
-            new Promise((sampleResolve, sampleReject) => {
-              try {
-                const samplePath = encodeURIComponent(`samples/${sample}`);
-                console.debug(`Loading samples: ${samplePath}`);
-                new Tone.ToneAudioBuffer(samplePath, sampleResolve, sample);
-                console.debug(`Successfully loaded ${sampleType} sample: ${sample}`);
-              } catch (error) {
-                console.error(`Error loading ${sampleType} sample: ${sample}`, error);
-                sampleReject(error);
-              }
-            })
-          );
-        });
-    
-        // Wait for all sample files to finish loading
-        Promise.all(samplePromises)
-          .then((ok) => {
-            console.debug(`${sampleType} loaded successfully`);
-            resolve(ok);
-          })
-          .catch((error) => {
-            console.error(`Error loading ${sampleType}:`, error);
-            reject(error);
-          });
-      });
-    };
-    
-
     setupPiano();
 
     return () => {
@@ -339,38 +128,6 @@ const useAudioEngine = () => {
       // piano.releaseAll();
     };
 
-  // const playChord = (notes, duration = 2) => {
-  //   console.debug(`playchord`)
-  //   console.debug(`notes `, notes)
-  //   console.debug(`duration ${duration}`)
-
-  //   if (!audioContext || !isLoaded) return;
-  //   console.debug(`audioContext ${audioContext}`)
-  //   console.debug(`isLoaded ${isLoaded}`)
-
-  //   notes.forEach(note => {
-  //     const source = audioContext.createBufferSource();
-  //     const gainNode = audioContext.createGain();
-      
-  //     source.buffer = samples[note];
-  //     source.connect(gainNode);
-  //     gainNode.connect(audioContext.destination);
-  //     console.debug(`gain node connected`)
-
-  //     // Set initial volume
-  //     gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
-      
-  //     // Fade out at the end
-  //     gainNode.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + duration);
-      
-  //     source.start();
-  //     console.debug(`source start`)
-
-  //     source.stop(audioContext.currentTime + duration);
-  //     console.debug(`source stop`)
-  //   });
-  // };
-
   return { playChord, stopAllNotes, isLoaded, startAudioContext };
 };
 
@@ -396,55 +153,11 @@ const songStyles = {
   }
 };
 
-const chordProgressions = {
-  happy: {
-    verse: [
-      ['Cmaj7', 'Am7', 'Fmaj7', 'G7'],
-      ['Dmaj7', 'Bm7', 'Gmaj7', 'A7'],
-      ['Gmaj7', 'Em7', 'Cmaj7', 'D7']
-    ],
-    chorus: [
-      ['Fmaj7', 'G7', 'Em7', 'Am7'],
-      ['Cmaj7', 'Dm7', 'Em7', 'F6'],
-      ['Gmaj7', 'Am7', 'Bm7', 'C6']
-    ]
-  },
-  melancholic: {
-    verse: [
-      ['Am7', 'Dm7', 'Em7', 'F6'],
-      ['Em7', 'Am7', 'Dm7', 'Bm7b5'],
-      ['Dm7', 'G7', 'Cmaj7', 'Am7']
-    ],
-    chorus: [
-      ['Fmaj7', 'Em7', 'Dm7', 'Cmaj7'],
-      ['Am7', 'G7', 'Fmaj7', 'E7'],
-      ['Dm7', 'G7', 'Cmaj7', 'Am7']
-    ]
-  },
-  energetic: {
-    verse: [
-      ['E7', 'A7', 'D7', 'G7'],
-      ['Dmaj7', 'A7', 'Gmaj7', 'E7'],
-      ['Gmaj7', 'D7', 'Em7', 'A7']
-    ],
-    chorus: [
-      ['Dmaj7', 'A7', 'Bm7', 'G6'],
-      ['Gmaj7', 'Em7', 'Amaj7', 'D7'],
-      ['Cmaj7', 'G7', 'Am7', 'D7']
-    ]
-  }
-};
 
-type Section = {
-  type: string;
-  chords: string;
-  expanded: boolean;
-}
 
 const SongWriter = () => {
   const [songIdea, setSongIdea] = useState('');
   const [initialChords, setInitialChords] = useState('');
-  const [parsedNotes, setParsedNotes] = useState<Set<string>>(new Set());
   const [parsedChords, setParsedChords] = useState<Set<Chord>>(new Set());
   const [sections, setSections] = useState<Section[]>([]);
   const [llm, setLlm] = useState<LLMQuery | null>(null);
@@ -452,7 +165,6 @@ const SongWriter = () => {
 
   const [tempo, setTempo] = useState(DEFAULT_TEMPO);
   const [songStyle, setSongStyle] = useState('pop');
-  const [barArrangements, setBarArrangements] = useState({});
   const [isSaving, setIsSaving] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const [db, setDB] = useState<DBClient | null>(null);
@@ -629,176 +341,15 @@ const SongWriter = () => {
     isPlaying
   ])
 
-  // Update tempo handling to use Tone.js Transport
   useEffect(() => {
     Tone.Transport.bpm.value = tempo;
   }, [tempo]);
-
-  // Function to parse and fetch matching chords
-const fetchMatchingChords = (note: string) => {
-  console.debug(`fetch matching chords ${note}`)
-  const chord = {...ChordLib.chord(note)}; // Parse the input chord
-  console.debug(`chordlib chord before `, chord)
-
-  chord.root = chord.root || note;
-  chord.rootDegree = chord.rootDegree || 3;
-
-  console.debug(`chordlib chord `, chord)
-  const root = chord.root; // Get the root of the chord (e.g., 'D', 'Cmaj7', etc.)
-  console.debug(`Chord root: ${root}`);
-
-  // Fetch all matching chords with the same root
-  const matchingChord = ChordLib.get(root)
-  console.debug(`matching chord  `, matchingChord)
-
-  const matchingChordNames = Array.from(ChordLib.extended(matchingChord.symbol)).concat(ChordLib.reduced(matchingChord.symbol))
-  console.debug(`matching chord names `, matchingChordNames)
-
-  const matchingChords = matchingChordNames.map(chord => {
-    console.debug(`map matching chords, chord `, chord)
-    return { ...ChordLib.get(chord)}
-  })
-  console.debug(`matching chords with root `, matchingChords)
-  return matchingChords;
-};
-
-const NoteSelector = ({ setSelectedChord }: any) => {
-  const [userNotes, setUserNotes] = useState<string>("");
-  const [matchingChords, setMatchingChords] = useState<Chord[]>([]);
-
-  useEffect(() => {
-    if (userNotes) {
-      console.debug(`notes input `, userNotes)
-      const validNotes = splitSpaceOrComma(userNotes.toUpperCase()).filter(note => musicalNotes.has(note.toUpperCase()))
-      console.debug(`valid notes `, validNotes)
-
-      const matchingChords = analyzeNotesToChords(validNotes)
-      // const matchingChordNames = ChordLib.detect(validNotes)
-      // console.debug(`matching chord names `, matchingChordNames)
-
-      // const matchingChords = matchingChordNames.map(chord => {
-      //   console.debug(`map matching chords, chord `, chord)
-      //   const match = {...ChordLib.get(chord)}
-      //   match.rootDegree = match.rootDegree || 3;
-      //   return match
-      // })
-      // console.debug(`matching chords `, matchingChords)
-
-      setMatchingChords(matchingChords as Chord[]); // Set matching chords to state
-    }
-  }, [userNotes]);
-
-  // Handle chord selection
-  const handleChordSelection = (chord: Chord) => {
-    chord.rootDegree = chord.rootDegree || 3; // Get the root degree of the selected chord
-    setSelectedChord(chord);
-    console.debug(`Selected chord: ${chord}`);
-    // Further actions can be performed with the midiNote
-  };
-
-  return (
-    <div>
-      <label className="text-sm font-medium">Find chord by notes </label>
-      <Input
-        type="text"
-        placeholder="e.g., D, F#, A"
-        value={userNotes}
-        onChange={(e) => setUserNotes(e.target.value)}
-      />
-      <div>
-        <h3>Matching Chords</h3>
-        {matchingChords.length > 0 ? (
-          <ul>
-            {matchingChords.map((chord, index) => (
-              <li key={index}>
-                <Button className='w-full !rounded-none' onClick={() => handleChordSelection(chord)}>
-                  {chord.symbol} {/* Display chord name */}
-                </Button>
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <p>No matching chords found</p>
-        )}
-      </div>
-    </div>
-  );
-};
-
-const ChordSelector = ({ setSelectedChord }: any) => {
-  const [userChord, setUserChord] = useState('');
-  const [matchingChords, setMatchingChords] = useState<Chord[]>([]);
-
-  useEffect(() => {
-    if (userChord) {
-      console.debug(`chord input `, userChord)
-      // const chords = fetchMatchingChords(userChord); // Get matching chords for the user input
-
-      // const matchingChords = getAllPossibleChords(validNotes)
-      const matchingChords = getChordInfo(userChord)
-
-      setMatchingChords(matchingChords as Chord[]); // Set matching chords to state
-    }
-  }, [userChord]);
-
-  // Handle chord selection
-  const handleChordSelection = (chord: Chord) => {
-    chord.rootDegree = chord.rootDegree || 3; // Get the root degree of the selected chord
-    setSelectedChord(chord);
-    console.debug(`Selected chord: ${chord}`);
-    // Further actions can be performed with the midiNote
-  };
-
-  return (
-    <div>
-      <label className="text-sm font-medium">Search chords</label>
-      <Input
-        type="text"
-        value={userChord}
-        onChange={(e) => setUserChord(e.target.value)}
-        placeholder="Enter chord (e.g., D/D, Cmaj7/B)"
-      />
-      <div>
-        <h3>Matching Chords</h3>
-        {matchingChords.length > 0 ? (
-          <ul>
-            {matchingChords.slice(0, 12).map((chord, index) => (
-              <li key={index}>
-                <Button className='w-full !rounded-none' onClick={() => handleChordSelection(chord)}>
-                  {chord.symbol} {/* Display chord name */}
-                </Button>
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <p>No matching chords found</p>
-        )}
-      </div>
-    </div>
-  );
-};
-
-  const getMoodFromText = (text: string) => {
-    const text_lower = text.toLowerCase();
-    if (text_lower.includes('happy') || text_lower.includes('joyful') || text_lower.includes('upbeat')) {
-      return 'happy';
-    } else if (text_lower.includes('sad') || text_lower.includes('melancholic') || text_lower.includes('blue')) {
-      return 'melancholic';
-    } else {
-      return 'energetic';
-    }
-  };
 
   const generateChords = async (idea: string, baseChords: Chord[], type: string) => {
     try {
     console.debug(`generateChords idea ${idea}`)
     console.debug(`generateChords baseChords`, baseChords)
     console.debug(`generateChords type ${type}`)
-
-    // const mood = getMoodFromText(idea);
-
-    // const progressions:string[][] = chordProgressions?.[idea]?.[type] || chordProgressions.happy[type] || chordProgressions.happy.chorus;
-    // console.debug(`progressions `, progressions);
 
     const a = await generateChordsAiResponse({ 
       mood: idea,
@@ -1194,7 +745,7 @@ const ChordSelector = ({ setSelectedChord }: any) => {
                   onChange={(e) => setInitialChords(e.target.value)}
                   /> */} 
 
-              <NoteSelector setSelectedChord={(chord: Chord) => setParsedChords((prev) => {
+              <SelectChordByNotes setSelectedChord={(chord: Chord) => setParsedChords((prev) => {
                     const chordMap = new Map();
 
                     // Add all chords from the previous Set to the Map
@@ -1209,7 +760,7 @@ const ChordSelector = ({ setSelectedChord }: any) => {
                   }
                 )} />
 
-              <ChordSelector setSelectedChord={(chord: Chord) => setParsedChords((prev) => {
+              <SelectChord setSelectedChord={(chord: Chord) => setParsedChords((prev) => {
                     const chordMap = new Map();
 
                     // Add all chords from the previous Set to the Map
@@ -1229,7 +780,7 @@ const ChordSelector = ({ setSelectedChord }: any) => {
               <div className="mt-2 py-4 rounded-md">
                 <div className='flex items-center gap-x-6'>
                 <p className="font-medium">Chord Analysis:</p>
-                <Button onClick={() => addSection({ chords: Array.from(parsedChords.values().map(chord => chord.symbol)).join(" - ")})} variant="outline" size="sm">
+                <Button onClick={() => addSection({ chords: Array.from(parsedChords.values()).map(chord => chord.symbol).join(" - ")})} variant="outline" size="sm">
                     <Plus className="w-4 h-4 mr-2" />
                     Add to Section
                   </Button>
@@ -1241,7 +792,6 @@ const ChordSelector = ({ setSelectedChord }: any) => {
                         <ChordDetails key={i} chord={chord} removeChord={() => removeParsedChord(i)} />
                     )}
                   )}
-                  
                 </div>
               </div>
             )}

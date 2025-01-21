@@ -1,4 +1,7 @@
-export const chordList = [
+import * as ChordLib from '@tonaljs/chord';
+import { ChordMatchType } from './types';
+
+const chordList = [
     {
         "empty": false,
         "name": "A major",
@@ -1511,4 +1514,184 @@ export const chordList = [
             "E#"
         ]
     }
-  ]
+]
+
+const musicalNotes: ReadonlySet<string> = new Set([
+    "A",
+    "A#",
+    "B",
+    "C",
+    "C#",
+    "D",
+    "D#",
+    "E",
+    "F",
+    "F#",
+    "G",
+    "G#",
+  ]);
+  
+  /**
+   * Analyzes input notes to find possible chords
+   * @param {string} noteString - Space-separated string of notes (e.g., "C E G")
+   * @returns {Object[]} Array of detailed chord information
+   */
+  function analyzeNotesToChords(inputNotes: string[]) {
+    // Split the input string into notes array
+  
+    // Generate initial chord possibilities using the first note as root
+    const initialChord = ChordLib.getChord('major', inputNotes[0]);
+    
+    // Use getChordInfo to find all related chords
+    const relatedChords = getChordInfo(initialChord.symbol);
+    
+    // Add additional possibilities using other notes as roots
+    const additionalChords = inputNotes.slice(1).flatMap(root => {
+      const testChord = ChordLib.getChord('major', root);
+      return getChordInfo(testChord.symbol);
+    });
+  
+    // Combine all results
+    const allChords = [...relatedChords, ...additionalChords];
+  
+    // Process and filter based on input notes
+    return processChordResults(allChords, inputNotes);
+  }
+  
+  /**
+   * Helper function to process and filter chord results
+   * @param {Object[]} chords - Array of chord objects
+   * @param {string[]} [filterNotes] - Optional array of notes to filter by
+   * @returns {Object[]} Processed and filtered chord array
+   */
+  function processChordResults(chords: ChordMatchType[], filterNotes: (string[] | null) = null) {
+    // Filter out chords with no matching notes
+    const relevantChords = chords.filter(chord => 
+      chord.matchScore.matching > 0 || chord.containedScore.contained > 0
+    );
+  
+    // Remove duplicates based on symbol
+    const uniqueChords = Array.from(
+      new Map(relevantChords.map(chord => [chord.symbol, chord])).values()
+    );
+  
+    // Sort results
+    const sortedChords = uniqueChords.sort((a, b) => {
+      if (a.isOriginal) return -1;
+      if (b.isOriginal) return 1;
+      
+      const matchDiff = b.matchScore.matching - a.matchScore.matching;
+      if (matchDiff !== 0) return matchDiff;
+      
+      return a.notes!.length - b.notes!.length;
+    });
+  
+    // If filterNotes provided, filter based on those notes
+    if (filterNotes) {
+      return sortedChords.filter(chord => 
+        filterNotes.some(note => chord?.notes?.includes(note))
+      );
+    }
+  
+    return sortedChords;
+}
+
+/**
+ * Gets information about a chord and all chords sharing similar notes
+ * @param {string} chordName - Name of the chord (e.g., "Cmaj7", "Dm")
+ * @returns {Object[]} Array of chord information objects
+ */
+function getChordInfo(chordName: string) {
+    // Get the original chord information
+    const originalChord = ChordLib.get(chordName);
+    
+    // If the chord is invalid, return empty array
+    if (originalChord.empty) {
+      return [];
+    }
+  
+    // Get the notes from the original chord
+    const originalNotes = new Set(originalChord.notes);
+  
+    // For each note in the original chord, try it as a root with different chord types
+    const allPossibleChords = Array.from(originalNotes).flatMap(root => {
+      return commonChords.map(type => {
+        const testChord = ChordLib.getChord(type, root);
+        const testNotes = new Set(testChord.notes);
+  
+        // Calculate how many notes match with the original chord
+        const matchingNotes = Array.from(originalNotes).filter(note => testNotes.has(note));
+        const containedNotes = Array.from(testNotes).filter(note => originalNotes.has(note));
+  
+        return {
+          name: testChord.name,
+          symbol: testChord.symbol,
+          type: testChord.type,
+          tonic: testChord.tonic,
+          notes: testChord.notes,
+          intervals: testChord.intervals,
+          quality: testChord.quality,
+          bass: testChord.bass,
+          isOriginal: testChord.symbol === originalChord.symbol,
+          matchScore: {
+            matching: matchingNotes.length,
+            total: testChord.notes.length,
+            percentage: (matchingNotes.length / testChord.notes.length * 100).toFixed(1)
+          },
+          containedScore: {
+            contained: containedNotes.length,
+            total: originalNotes.size,
+            percentage: (containedNotes.length / originalNotes.size * 100).toFixed(1)
+          },
+          matchingNotes,
+          relationship: testChord.symbol === originalChord.symbol ? 'original' : 'related'
+        };
+      });
+    });
+  
+    // Filter and sort results
+    return processChordResults(allPossibleChords);
+}
+
+  // Function to parse and fetch matching chords
+  const fetchMatchingChords = (note: string) => {
+    console.debug(`fetch matching chords ${note}`)
+    const chord = {...ChordLib.chord(note)}; // Parse the input chord
+    console.debug(`chordlib chord before `, chord)
+  
+    chord.root = chord.root || note;
+    chord.rootDegree = chord.rootDegree || 3;
+  
+    console.debug(`chordlib chord `, chord)
+    const root = chord.root; // Get the root of the chord (e.g., 'D', 'Cmaj7', etc.)
+    console.debug(`Chord root: ${root}`);
+  
+    // Fetch all matching chords with the same root
+    const matchingChord = ChordLib.get(root)
+    console.debug(`matching chord  `, matchingChord)
+  
+    const matchingChordNames = Array.from(ChordLib.extended(matchingChord.symbol)).concat(ChordLib.reduced(matchingChord.symbol))
+    console.debug(`matching chord names `, matchingChordNames)
+  
+    const matchingChords = matchingChordNames.map(chord => {
+      console.debug(`map matching chords, chord `, chord)
+      return { ...ChordLib.get(chord)}
+    })
+    console.debug(`matching chords with root `, matchingChords)
+    return matchingChords;
+};
+
+const commonChords: Readonly<string[]> = [
+    'major', 'minor', '7', 'maj7', 'm7', 'dim7', 'aug', 
+    'sus4', 'sus2', '6', 'm6', '9', 'maj9', 'm9',
+    'add9', '69', 'm69', '11', 'maj11', 'min11'
+];
+
+export {
+    chordList,
+    musicalNotes,
+    analyzeNotesToChords,
+    processChordResults,
+    getChordInfo,
+    fetchMatchingChords
+}
