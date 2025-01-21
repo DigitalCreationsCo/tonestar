@@ -2,8 +2,8 @@ import { useEffect } from "react";
 import { Chord } from "@tonaljs/chord";
 import { useState } from "react";
 import { getChordInfo } from "@/lib/chord";
-import { Input } from "./ui/input";
-import { Button } from "./ui/button";
+import { Input } from "../ui/input";
+import { Button } from "../ui/button";
 
 export function SelectChord ({ setSelectedChord }: any) {
     const [userChord, setUserChord] = useState('');

@@ -16,120 +16,12 @@ import { LLMQuery, TonestarAiRequest } from '@/lib/llmClient';
 import { getEnv } from "@/components/auth/actions";
 import { toast } from '@/hooks/use-toast';
 import { chordList } from '@/lib/chord';
-import { Piano } from '@tonejs/piano';
 import { DBClient } from '@/lib/client';
 import { ChordDraggableType, Section } from '@/lib/types';
-import { SelectChordByNotes } from '@/components/select-chord-by-notes';
-import { SelectChord } from '@/components/select-chord';
-
-
-const useAudioEngine = () => {
-  const [piano, setPiano] = useState<Piano | null>(null);
-  const [audioContextStarted, setAudioContextStarted] = useState(false);
-  const [isLoaded, setIsLoaded] = useState(false);
-
-  useEffect(() => {
-    let mounted = true;
-
-    // Piano initialization
-    const setupPiano = async () => {
-      try {
-        const db = await DBClient.getInstance()
-        console.debug('Database instance initialized:', db);
-
-        let samples = await db.readById('SAMPLES_STORE', {id: 'samples'})
-        console.debug(`cached piano from db `, samples)
-        let piano
-        if (!samples) {
-          console.debug(`no samples `, samples)
-          // const response = await fetch(`api/samples`, { headers: { 'content-type': 'application/json' }});
-          // if (!response.ok) {
-          //   throw new Error(await response.text())
-          // }
-          // const samples = await (await response.json())['files']
-          piano = new Piano({ url: '/samples' , velocities: 1, release: true })
-
-          // await db.write<Piano>('SAMPLES_STORE', {...piano, id: 'piano'} as Piano & {id:string})
-          // await db.write('SAMPLES_STORE', {
-          //   samples,
-          //   id: 'samples'}
-          // )
-          console.debug(`cached piano samples`)
-        }
-        else { 
-          console.debug(`yes samples `, samples)
-          piano = new Piano({ velocities: 1, release: true })
-        }
-        piano.toDestination();
-        await piano.load()
-        console.debug(`init piano OK`);
-    
-        // Check if the component is mounted before updating state
-        if (mounted) {
-          console.debug("Piano loaded successfully, setting state...");
-          setPiano(piano);
-          setIsLoaded(true);
-        }
-      } catch (error: any) {
-        console.error('Failed to initialize piano:', error);
-        toast({ description: error.message })
-      }
-    };
-    
-    setupPiano();
-
-    return () => {
-      mounted = false;
-      if (piano) {
-        piano.dispose();
-      }
-    };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-    const startAudioContext = async () => {
-      if (!audioContextStarted) {
-        try {
-          await Tone.start();
-          setAudioContextStarted(true);
-          return true;
-        } catch (error) {
-          console.error('Failed to start AudioContext:', error);
-          return false;
-        }
-      }
-      return true;
-    };
-  
-    const playChord = async (chord: Chord, duration = 2) => {
-      console.debug(`play chord notes: `, chord.notes)
-      console.debug(`play chord degree: `, chord.rootDegree)
-      if (!piano || !isLoaded) return;
-      
-      // Ensure AudioContext is started before playing
-      const started = await startAudioContext();
-      if (!started) return;
-  
-      const durationSeconds = (60 / Tone.Transport.bpm.value) * duration;
-      const now = Tone.now();
-      
-      chord.notes.forEach(note => {
-        const noteWithOctaveDegree = note + chord.rootDegree; // add the scalign octave function for accurate chord intervals
-        console.debug(`note with octave degree ${noteWithOctaveDegree}`)
-
-        console.debug(`play note `, note);
-        piano.keyDown({ note: noteWithOctaveDegree, velocity: 0.7 });
-        piano.keyUp({ note: noteWithOctaveDegree, time: now + durationSeconds });
-      });
-    };
-  
-    const stopAllNotes = () => {
-      if (!piano) return;
-      // piano.releaseAll();
-    };
-
-  return { playChord, stopAllNotes, isLoaded, startAudioContext };
-};
+import { SelectChordByNotes } from '@/components/chord/select-chord-by-notes';
+import { SelectChord } from '@/components/chord/select-chord';
+import { ChordDetails } from '@/components/chord/chord-details';
+import { useAudioEngine } from '@/hooks/use-audio-engine';
 
 const GRID_SIZE = 16; // 16th note grid
 const DEFAULT_TEMPO = 120;
@@ -166,7 +58,6 @@ const SongWriter = () => {
   const [tempo, setTempo] = useState(DEFAULT_TEMPO);
   const [songStyle, setSongStyle] = useState('pop');
   const [isSaving, setIsSaving] = useState(false);
-  const [isPlaying, setIsPlaying] = useState(false);
   const [db, setDB] = useState<DBClient | null>(null);
   const [currentSongId, setCurrentSongId] = useState('');
   const [generatedSong, setGeneratedSong] = useState<{
@@ -177,7 +68,7 @@ const SongWriter = () => {
   const [currentChordIndex, setCurrentChordIndex] = useState(0);
   const [audioInitialized, setAudioInitialized] = useState(false);
 
-  const { playChord, stopAllNotes, isLoaded, startAudioContext } = useAudioEngine();
+  const { playChord, stopAllNotes, isLoaded, startAudioContext, isPlaying, setIsPlaying } = useAudioEngine(); 
 
   const removeParsedChord = (index: number) => {
     const chordList = Array.from(parsedChords.values())
@@ -416,43 +307,7 @@ const SongWriter = () => {
     setSections(newSections);
   };
 
-  // Render chord details
-  const ChordDetails = ({ chord, removeChord, className }: { chord: Chord, removeChord?: () => void, className?: any }) => {
-    if (!chord || chord.empty) return null;
-    return (
-      <Card className={className}>
-        <CardHeader>
-          <CardTitle className='w-full flex grow justify-between items-center'>
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={() => playChord(chord, 1)}
-              disabled={!isLoaded}
-              className='text-2xl font-semibold leading-none tracking-tight rounded-lg transition-none'
-              >
-              {chord.symbol}
-              <Volume2 className="w-5 h-5" />
-            </Button>
-            { removeChord &&
-              <Button 
-                variant="ghost" 
-                size="sm"
-                onClick={removeChord}
-                className="ml-auto rounded-full transition-none"
-              >
-                <X className="w-4 h-4" />
-              </Button>
-            }
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          {/* <p>{chord.type}</p> */}
-          <p>{chord.notes.join(', ')}</p>
-          {/* <p>quality: {chord.quality}</p> */}
-        </CardContent>
-      </Card>
-    );
-  };
+
 
   // Auto-save functionality
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -908,22 +763,6 @@ const SongWriter = () => {
                     );
                   })}
                 </div>
-              
-                {/* <div className="mt-4 p-4 rounded-md">
-                <p className="font-medium">Generated Progression:</p>
-                <p className="mt-2 font-mono">{generatedSong[index].chords}</p>
-                <div className="mt-4 grid grid-cols-2 gap-4">
-                  {generatedSong[index].chords.split(' - ').map((chord, i) => {
-                    const analysis = {...ChordLib.get(chord)};
-                    analysis.rootDegree = analysis.rootDegree || 3;
-                    console.debug(`chord analysis `, analysis)
-                    return (
-                      <ChordDetails chord={analysis} />
-                    );
-                  })}
-                </div>
-              </div> */}
-
               </>
             )}
           </Card>
