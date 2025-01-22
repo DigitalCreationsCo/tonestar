@@ -6,11 +6,11 @@ import { Volume, Volume2, X } from 'lucide-react';
 import type { Chord } from '@tonaljs/chord';
 import { useAudioEngine } from '@/hooks/use-audio-engine';
 
-export const ChordDetails = ({ chord, removeChord, className }: { chord: Chord, removeChord?: () => void, className?: any }) => {
+export const ChordDetails = ({ chord, removeChord, ...props }: { chord: Chord, removeChord?: () => void, }) => {
     if (!chord || chord.empty) return null;
     const { playChord, isLoaded, isPlaying } = useAudioEngine();
     return (
-      <Card className={className}>
+      <Card {...props} className='rounded-none'>
         <CardHeader>
           <CardTitle className='w-full flex grow justify-between items-center'>
             <Button

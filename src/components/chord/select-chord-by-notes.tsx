@@ -41,17 +41,17 @@ export function SelectChordByNotes ({ setSelectedChord }: any) {
     };
   
     return (
-      <div>
+      <div className='flex-[0.5]'>
         <label className="text-sm font-medium">Find chord by notes </label>
         <Input
           type="text"
-          placeholder="e.g., D, F#, A"
+          placeholder="e.g. D, F#, A"
           value={userNotes}
           onChange={(e) => setUserNotes(e.target.value)}
         />
         <div>
-          <h3>Matching Chords</h3>
           {matchingChords.length > 0 ? (
+            <>
             <ul>
               {matchingChords.map((chord, index) => (
                 <li key={index}>
@@ -61,6 +61,7 @@ export function SelectChordByNotes ({ setSelectedChord }: any) {
                 </li>
               ))}
             </ul>
+            </>
           ) : (
             <p>No matching chords found</p>
           )}

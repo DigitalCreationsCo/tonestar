@@ -1,7 +1,7 @@
 {
   "name": "tonestar",
   "displayName": "Tonestar",
-  "description": "Turn your ideas into chart-topping hits.",
+  "description": "Turn your ideas into chart-topping hits",
   "version": "0.1.0",
   "scripts": {
     "dev": "next dev",

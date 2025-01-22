@@ -227,12 +227,6 @@ const SongWriter = () => {
   }, [initialChords]);
 
   useEffect(() => {
-    console.debug(`useeffect isPlaying? ${isPlaying}`)
-  }, [
-    isPlaying
-  ])
-
-  useEffect(() => {
     Tone.Transport.bpm.value = tempo;
   }, [tempo]);
 
@@ -519,7 +513,7 @@ const SongWriter = () => {
       <div className="pt-4 grid grid-cols-3 lg:grid-cols-2 overflow-y-scoll row-start-3 xl:row-start-1">
         {(chordList as unknown as Chord[]).map((chord, index) => {
           chord.rootDegree = chord.rootDegree || 3;
-          return <ChordDetails key={index} className="rounded-none" chord={chord} />
+          return <ChordDetails key={index} chord={chord} />
           }
         )}
       </div>
@@ -593,13 +587,6 @@ const SongWriter = () => {
 
           <div className="space-y-2">
             <div className="flex gap-4 justify-around">
-                {/* <label className="text-sm font-medium">Initial Chords (optional)</label> */}
-                {/* <Input 
-                  placeholder="e.g., D Cmaj7 Am7 Fmaj7 G7"
-                  value={initialChords}
-                  onChange={(e) => setInitialChords(e.target.value)}
-                  /> */} 
-
               <SelectChordByNotes setSelectedChord={(chord: Chord) => setParsedChords((prev) => {
                     const chordMap = new Map();
 

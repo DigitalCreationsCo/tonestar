@@ -1,11 +1,6 @@
 import { Chord } from "@tonaljs/chord";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
-// const getEnv = () => Promise.resolve({ 
-//     GEMINI_API_KEY: "AIzaSyB5whekbuZ8kRqn2tmd_uzE_6qqJ_414Mw", 
-//     GEMINI_URL: "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent"
-// })
-
 export interface TonestarAiRequest {
   chords: Chord[];
   genre: string;
@@ -73,61 +68,11 @@ export class LLMQuery {
         responseMimeType: "application/json"
       };
   
-      const generationConfig = { ...defaultConfig, ...options };
-  
-      const endpointUrl = `${this.apiUrl}?key=${this.apiKey}`
-      // console.debug(`url: ${this.apiUrl}`)
-      // console.debug(`key: ${this.apiKey}`)
-      // console.debug(`endpointUrl: ${endpointUrl}`)
+    const generationConfig = { ...defaultConfig, ...options };
 
-      console.debug(`request input: `, input)
+    const endpointUrl = `${this.apiUrl}?key=${this.apiKey}`
 
-    //   const body = JSON.stringify(
-    //     { "system_instruction": {
-    //       "parts": { 
-    //         "text": "Generate a complete and compelling musical composition (song) using user-provided chords as a starting point.",
-    //       }
-    //     },
-    //     contents: [
-    //       {
-    //         role: "user",
-    //         parts: [
-    //           {
-    //             text: {
-    //               "chord_progression": input.chords,
-    //               "genre": input.genre,
-    //               "tempo": input.tempo,
-    //               "key": input.key,
-    //               "song_length": input.length,
-    //               "instrumentation": input.instrumentation,
-    //               "song_mood": input.mood,
-    //               "output": {
-    //                 "song_structure_analysis": {
-    //                   "sections": {
-    //                     "name": "string",
-    //                     "duration": "string",
-    //                     "chords": []
-    //                   },
-    //                   "chord_names": [],
-    //                   "chord_notes": [],
-    //                   "form": ""
-    //                 },
-    //                 "metadata": {
-    //                   "generated_genre": "string",
-    //                   "generated_tempo": "number",
-    //                   "generated_key": "string",
-    //                   "instrumentation_used": []
-    //                 }
-    //               },
-    //             }
-    //           },
-    //         ],
-    //       },
-    //     ],
-    //     generationConfig,
-    //   },
-    //   (_, value) => value ?? null
-    // );
+    console.debug(`request input: `, input)
 
     const getValueOrNull = (key: keyof TonestarAiRequest) => JSON.stringify(input[key]) ?? null
 
@@ -240,20 +185,8 @@ export class LLMQuery {
 
       console.debug(`body`, body)
       
-      // const encodeBody = encodeURIComponent(body)
-      // console.debug(`encodeBody`, encodeBody)
-
-      // console.debug(`encode body string`, JSON.stringify(encodeBody))
-      
       try {
         console.debug(`sending llmquery request`)
-        // const response = await fetch(endpointUrl, {
-        //   method: "POST",
-        //   headers: {
-        //     "Content-Type": "text/plain"
-        //   },
-        //   body
-        // });
 
         const { response } = await this.gen.getGenerativeModel({ model: "gemini-2.0-flash-exp", generationConfig }, { customHeaders: {
             "Content-Type": "application/json"
@@ -261,20 +194,11 @@ export class LLMQuery {
 
         console.debug(`response`, response)
   
-        // if (!response.ok) {
-        //   const errorBody = await response.json().catch(() => null); // Fallback if the body is not JSON
-        //   throw new Error(
-        //     `HTTP Error ${response.status}: ${response.statusText}${
-        //       errorBody ? `\nResponse Body: ${JSON.stringify(errorBody, null, 2)}` : ""
-        //     }`
-        //   );
-        // }
-  
         const result = await response.text()
         console.debug(`result `, result)
 
         return JSON.parse(result);
-      } catch (error) {
+      } catch (error: any) {
         console.error("Error querying LLM:", error.message);
         throw new Error(error.message)
       }

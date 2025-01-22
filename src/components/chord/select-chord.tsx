@@ -30,17 +30,17 @@ export function SelectChord ({ setSelectedChord }: any) {
     };
   
     return (
-      <div>
-        <label className="text-sm font-medium">Search chords</label>
+      <div className='flex-[0.5]'>
+        <label className="text-sm font-medium">Find chord names</label>
         <Input
           type="text"
           value={userChord}
           onChange={(e) => setUserChord(e.target.value)}
-          placeholder="Enter chord (e.g., D/D, Cmaj7/B)"
+          placeholder="e.g. A, D/D, Cmaj7/B"
         />
         <div>
-          <h3>Matching Chords</h3>
           {matchingChords.length > 0 ? (
+            <>
             <ul>
               {matchingChords.slice(0, 12).map((chord, index) => (
                 <li key={index}>
@@ -50,6 +50,7 @@ export function SelectChord ({ setSelectedChord }: any) {
                 </li>
               ))}
             </ul>
+            </>
           ) : (
             // <p>No matching chords found</p>
             <></>
