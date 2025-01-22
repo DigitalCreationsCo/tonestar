@@ -26,13 +26,7 @@ export const useAudioEngine = () => {
           let piano
           if (!samples) {
             console.debug(`no samples `, samples)
-            // const response = await fetch(`api/samples`, { headers: { 'content-type': 'application/json' }});
-            // if (!response.ok) {
-            //   throw new Error(await response.text())
-            // }
-            // const samples = await (await response.json())['files']
-            piano = new Piano({ url: '/samples' , velocities: 1, release: true })
-  
+            piano = new Piano({ velocities: 1, release: true })
             // await db.write<Piano>('SAMPLES_STORE', {...piano, id: 'piano'} as Piano & {id:string})
             // await db.write('SAMPLES_STORE', {
             //   samples,

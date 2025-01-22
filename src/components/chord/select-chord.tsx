@@ -11,13 +11,10 @@ export function SelectChord ({ setSelectedChord }: any) {
   
     useEffect(() => {
       if (userChord) {
-        console.debug(`chord input `, userChord)
-        // const chords = fetchMatchingChords(userChord); // Get matching chords for the user input
-  
-        // const matchingChords = getAllPossibleChords(validNotes)
-        const matchingChords = getChordInfo(userChord)
-  
-        setMatchingChords(matchingChords as Chord[]); // Set matching chords to state
+        const matchingChords = getChordInfo(userChord);
+        setMatchingChords(matchingChords as Chord[]);
+      } else {
+        setMatchingChords([])
       }
     }, [userChord]);
   
@@ -26,7 +23,7 @@ export function SelectChord ({ setSelectedChord }: any) {
       chord.rootDegree = chord.rootDegree || 3; // Get the root degree of the selected chord
       setSelectedChord(chord);
       console.debug(`Selected chord: ${chord}`);
-      // Further actions can be performed with the midiNote
+      setUserChord('')
     };
   
     return (

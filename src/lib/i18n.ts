@@ -11,6 +11,11 @@ import { getRequestConfig } from 'next-intl/server';
 // 3. Every 24 hours at 5am, the workflow will run automatically
 
 // Using internationalization in Server Components
-export default getRequestConfig(async ({ locale }) => ({
-  messages: (await import(`../locales/${locale}.json`)).default,
-}));
+export default getRequestConfig(async ({ locale }) => {
+  console.info('locale ', locale);
+  const messages = await (await import(`../locales/${locale}`)).default
+  console.info('messages ', messages);
+  return {
+    messages
+  }
+});

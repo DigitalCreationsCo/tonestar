@@ -63,7 +63,7 @@ export function SelectChordByNotes ({ setSelectedChord }: any) {
             </ul>
             </>
           ) : (
-            <p>No matching chords found</p>
+            <></>
           )}
         </div>
       </div>
