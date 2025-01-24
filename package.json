@@ -4,10 +4,10 @@
   "description": "Turn your ideas into chart-topping hit songs",
   "version": "0.1.0",
   "scripts": {
-    "dev": "NODE_OPTIONS='--max-old-space-size=4096' next dev",
+    "dev": "next dev",
     "build": "next build",
     "build-stats": "cross-env ANALYZE=true yarn build",
-    "start": "NODE_OPTIONS='--max-old-space-size=4096' next start",
+    "start": "next start",
     "lint": "next lint",
     "format": "next lint --fix && prettier '**/*.{json,yaml}' --write --ignore-path .gitignore"
   },
