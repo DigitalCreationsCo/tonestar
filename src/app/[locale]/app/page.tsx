@@ -65,7 +65,6 @@ const SongWriter = () => {
   }, [tempo]);
 
 
-  // Auto-save functionality
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const saveToDB = useCallback(
     debounce(async (data: any) => {

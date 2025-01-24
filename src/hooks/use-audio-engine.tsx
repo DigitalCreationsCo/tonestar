@@ -10,7 +10,7 @@ const SAMPLES_KEY = 'piano-samples';
 const CACHE_VERSION = '1.0.0';
 
 interface AudioEngineState {
-  status: 'loading' | 'ready' | 'failed'; // Track the state
+  status: 'loading' | 'ready' | 'failed';
   loadingProgress: number;
   hasPermission: boolean;
 }
@@ -35,6 +35,7 @@ export const useAudioEngine = () => {
       await initializePlayer();
     };
     
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     useEffect(() => {
       console.log("useEffect: Running init...");
       init();

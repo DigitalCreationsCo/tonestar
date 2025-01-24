@@ -7,8 +7,10 @@ import type { Chord } from '@tonaljs/chord';
 import { useAudioEngine } from '@/hooks/use-audio-engine';
 
 export const ChordDetails = ({ chord, removeChord, ...props }: { chord: Chord, removeChord?: () => void, }) => {
+    const { playChord, isPlaying } = useAudioEngine();
+    
     if (!chord || chord.empty) return null;
-    const { playChord, audioEngineStatus, isPlaying } = useAudioEngine();
+    
     return (
       <Card {...props} className='rounded-none bg-secondary/25'>
         <CardHeader>

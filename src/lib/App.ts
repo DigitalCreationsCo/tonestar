@@ -16,6 +16,7 @@ export const App = {
   ],
   defaultLocale: 'en',
   localePrefix,
+  logoUrl: "/logo.png"
 };
 
 export const AllLocales = App.locales.map((locale) => locale.id);
