@@ -442,7 +442,7 @@ const SongWriter = () => {
               className="flex-1"
               disabled={!userSongIdea || isLoadingGenerate}
             >
-              {isLoadingGenerate ? `...your next hit` : `Generate Complete Song`}
+              {isLoadingGenerate ? `...your next hit` : `Generate Song`}
             </Button>
           </div>
         </CardContent>

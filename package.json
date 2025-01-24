@@ -1,7 +1,7 @@
 {
   "name": "tonestar",
   "displayName": "Tonestar",
-  "description": "Turn your ideas into chart-topping hits",
+  "description": "Turn your ideas into chart-topping hit songs",
   "version": "0.1.0",
   "scripts": {
     "dev": "NODE_OPTIONS='--max-old-space-size=4096' next dev",
