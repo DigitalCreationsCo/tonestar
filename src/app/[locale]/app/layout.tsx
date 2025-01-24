@@ -2,10 +2,8 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "@/styles/globals.css";
 import { AllLocales } from "@/lib/App";
-import { NextIntlClientProvider, useMessages } from "next-intl";
+import { NextIntlClientProvider as IntlClientProvider, useMessages } from "next-intl";
 import { notFound } from "next/navigation";
-import Header from "@/components/header"
-import { SessionProvider } from "next-auth/react"
 import { Toaster } from "@/components/ui/toaster"
 import { App } from "@/lib/App";
 
@@ -38,34 +36,38 @@ export const metadata: Metadata = {
   ],
 };
 
-export default function RootLayout( props: Readonly<{
+function NextIntlClientProvider({locale, children}: any) {
+  const messages = useMessages();
+  return (
+    <IntlClientProvider
+    locale={locale}
+    messages={messages}
+    >
+      {children}
+    </IntlClientProvider>
+  )
+}
+
+export default async function AppLayout( props: Readonly<{
   children: React.ReactNode;
   params: { locale: string };
 }>) {
+  const locale = await props.params.locale;
 
-    // Validate that the incoming `locale` parameter is valid
-    if (!AllLocales.includes(props.params.locale)) notFound();
-
-    // Using internationalization in Client Components
-    const messages = useMessages();
+  if (!AllLocales.includes(locale)) notFound();
     
   return (
-    <html lang={props.params.locale} className="dark">
-      <body className={`${inter.className} bg-background text-foreground antialiased`}>
-        <SessionProvider>
+    <html lang={locale} className="dark">
+      <body className={`${inter.className} bg-background text-foreground antialiased h-screen`}>
           <NextIntlClientProvider
-            locale={props.params.locale}
-            messages={messages}
+            locale={locale}
             >
-            <Header />
-            {props.children}
-            <Toaster />
+           {props.children}
+           <Toaster />
           </NextIntlClientProvider>
-        </SessionProvider>
       </body>
     </html>
   );
 }
 
-// Enable edge runtime
 export const runtime = 'edge';

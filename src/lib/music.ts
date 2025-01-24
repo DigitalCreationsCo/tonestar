@@ -1,5 +1,55 @@
 import * as ChordLib from '@tonaljs/chord';
-import { ChordMatchType } from './types';
+import { ChordMatchType, Section } from './types';
+
+type SongStyle = { structure: SectionTypes[], tempoRange: [number, number] };
+type SectionTypes = string;
+
+const songStyles: Record<string, SongStyle> = {
+    pop: {
+    structure: ['verse', 'pre-chorus', 'chorus', 'verse', 'pre-chorus', 'chorus', 'bridge', 'chorus', 'outro'],
+    tempoRange: [100, 130]
+    },
+    rock: {
+    structure: ['intro', 'verse', 'chorus', 'verse', 'chorus', 'guitar solo', 'bridge', 'chorus', 'outro'],
+    tempoRange: [120, 160]
+    },
+    ballad: {
+    structure: ['intro', 'verse', 'chorus', 'verse', 'chorus', 'instrumental break', 'chorus', 'outro'],
+    tempoRange: [60, 80]
+    },
+    electronic: {
+    structure: ['intro', 'buildup', 'drop', 'breakdown', 'buildup', 'drop', 'outro'],
+    tempoRange: [120, 140]
+    },
+    classical: {
+    structure: ['exposition', 'development', 'recapitulation', 'coda'],
+    tempoRange: [50, 120]
+    },
+    jazz: {
+    structure: ['intro', 'head', 'solo section', 'head', 'outro'],
+    tempoRange: [90, 140]
+    },
+    blues: {
+    structure: ['intro', '12-bar progression', 'instrumental break', '12-bar progression', 'outro'],
+    tempoRange: [80, 120]
+    },
+    hipHop: {
+    structure: ['intro', 'verse', 'hook', 'verse', 'hook', 'bridge', 'hook', 'outro'],
+    tempoRange: [70, 110]
+    },
+    folk: {
+    structure: ['intro', 'verse', 'chorus', 'verse', 'chorus', 'bridge', 'chorus', 'outro'],
+    tempoRange: [80, 120]
+    },
+    rnb: {
+    structure: ['intro', 'verse', 'pre-chorus', 'chorus', 'verse', 'pre-chorus', 'chorus', 'bridge', 'chorus', 'outro'],
+    tempoRange: [60, 100]
+    },
+    reggae: {
+    structure: ['intro', 'verse', 'chorus', 'verse', 'chorus', 'bridge', 'chorus', 'outro'],
+    tempoRange: [70, 90]
+    }
+}
 
 const chordList = [
     {
@@ -1693,5 +1743,6 @@ export {
     analyzeNotesToChords,
     processChordResults,
     getChordInfo,
-    fetchMatchingChords
+    fetchMatchingChords,
+    songStyles
 }

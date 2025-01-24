@@ -14,7 +14,7 @@ import { App } from '@/lib/App';
 import { LLMQuery, TonestarAiRequest } from '@/lib/llmClient';
 import { getEnv } from "@/components/auth/actions";
 import { toast } from '@/hooks/use-toast';
-import { chordList } from '@/lib/chord';
+import { chordList, songStyles } from '@/lib/music';
 import { DBClient } from '@/lib/client';
 import { SelectChordByNotes } from '@/components/chord/select-chord-by-notes';
 import { SelectChord } from '@/components/chord/select-chord';
@@ -25,281 +25,44 @@ import { useAudioEngine } from '@/hooks/use-audio-engine';
 
 const DEFAULT_TEMPO = 120;
 
-const songStyles = {
-  pop: {
-    structure: ['verse', 'chorus', 'verse', 'chorus', 'bridge', 'chorus'],
-    tempoRange: [100, 130]
-  },
-  rock: {
-    structure: ['intro', 'verse', 'chorus', 'verse', 'chorus', 'bridge', 'chorus', 'outro'],
-    tempoRange: [120, 160]
-  },
-  ballad: {
-    structure: ['intro', 'verse', 'chorus', 'verse', 'chorus', 'outro'],
-    tempoRange: [60, 80]
-  },
-  electronic: {
-    structure: ['intro', 'buildup', 'drop', 'breakdown', 'buildup', 'drop', 'outro'],
-    tempoRange: [120, 140]
-  }
-};
-
-
-
 const SongWriter = () => {
-  const [songIdea, setSongIdea] = useState('');
-  const [initialChords, setInitialChords] = useState('');
-  const [parsedChords, setParsedChords] = useState<Set<Chord>>(new Set());
-  const [sections, setSections] = useState<Section[]>([]);
-  const [llm, setLlm] = useState<LLMQuery | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
-
+  const [userSongIdea, setUserSongIdea] = useState('');
+  const [selectedChords, setSelectedChords] = useState<Set<Chord>>(new Set());
   const [tempo, setTempo] = useState(DEFAULT_TEMPO);
   const [songStyle, setSongStyle] = useState('pop');
+  const [currentChordIndex, setCurrentChordIndex] = useState(0);
+  const [sections, setSections] = useState<Section[]>([]);
+  const [currentSongId, setCurrentSongId] = useState('');
+  const [song, setSong] = useState<Section[] | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [db, setDB] = useState<DBClient | null>(null);
-  const [currentSongId, setCurrentSongId] = useState('');
-  const [generatedSong, setGeneratedSong] = useState<{
-    type: string;
-    chords: string;
-    expanded: boolean;
-}[] | null>(null);
-  const [currentChordIndex, setCurrentChordIndex] = useState(0);
-  const [audioInitialized, setAudioInitialized] = useState(false);
-
-  const { playChord, stopAllNotes, isLoaded, startAudioContext, isPlaying, setIsPlaying } = useAudioEngine(); 
-
-  const removeParsedChord = (index: number) => {
-    const chordList = Array.from(parsedChords.values())
-    chordList.splice(index)
-    setParsedChords(new Set(chordList))
-  }
-
-  // Initialize audio on first play attempt
-  const handleFirstPlay = async () => {
-    if (!audioInitialized) {
-      const started = await startAudioContext();
-      if (started) {
-        setAudioInitialized(true);
-      }
-    }
-  };
+  const [llm, setLlm] = useState<LLMQuery | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingGenerate, setIsLoadingGenerate] = useState(false);
   
-  const playProgression = async (chords: string) => {
-    if (!isLoaded || isPlaying) return;
-    
-    console.debug(`play progression`)
-    console.debug(`isLoaded ${isLoaded}`)
-    console.debug(`isPlaying ${isPlaying}`)
+  const { playChord, stopAllNotes, audioEngineStatus, isPlaying, requestAudioPermission, setIsPlaying } = useAudioEngine(); 
 
-    // Ensure audio is initialized before playing
-    if (!audioInitialized) {
-      const started = await startAudioContext();
-      if (!started) return;
-      setAudioInitialized(true);
-    }
-
-    setIsPlaying(true);
-    setCurrentChordIndex(0);
-
-    const chordList = chords.split(' - ');
-    console.debug(`chord list ${chordList}`)
-
-    for (let i = 0; i < chordList.length; i++) {
-      // console.debug(`break? ${!isPlaying}`)
-      // if (!isPlaying) break;
-      
-      setCurrentChordIndex(i);
-
-      const chord = { ...ChordLib.get(chordList[i]) };
-      chord.rootDegree = chord.rootDegree || 3
-
-      console.debug(`chord lib chord: ${chord}`)
-      await playChord(chord, 1);
-
-      console.debug(`played chord`)
-      await new Promise(resolve => setTimeout(resolve, (60 / tempo) * 1000));
-
-    }
-
-    setIsPlaying(false);
-    setCurrentChordIndex(0);
-  };
-
-  const stopPlaying = () => {
-    console.debug(`stop playing`)
-    setIsPlaying(false);
-    stopAllNotes();
-  };
-
-  // Function to initialize the LLMQuery instance asynchronously
-  const initializeLlmQuery = async () => {
-    try {
-      const llmInstance = await LLMQuery.getInstance(getEnv);
-      if (llmInstance) {
-        setLlm(llmInstance); // Store the instance in state
-        setIsLoading(false);  // Set loading to false once initialized
-      }
-    } catch (error) {
-      console.error("Error initializing LLMQuery:", error);
-      setIsLoading(false);
-    }
-  };
-
-  const generateChordsAiResponse = async (query: TonestarAiRequest) => {
-    if (llm) {
-      try {
-        setIsLoading(true);
-        console.debug(`ai query: `, query);
-        const response = await llm.sendRequest(query);
-        setIsLoading(false);
-        return response;
-      } catch (error:any) {
-        setIsLoading(false);
-        throw new Error("Error querying LLM:", error.message)
-      }
-    }
-  };
-  
-  const generateSongAiResponse = async (query: TonestarAiRequest) => {
-    if (llm) {
-      try {
-        setIsLoading(true);
-        console.debug(`ai query: `, query);
-        const response = await llm.sendRequest(query);
-        setIsLoading(false);
-        return response;
-      } catch (error: any) {
-        setIsLoading(false);
-        console.error("generate song error:", error);
-        toast({ description: "Error generating song." })
-        throw new Error("Error generating song:", error.message)
-      }
-    }
-  };
-
-  // Initialize IndexedDB
   useEffect(() => {
+    let isMounted = true;
     async function initDB() {
-      const db = await DBClient.getInstance()
-      setDB(db)
+      console.info("Initializing DB client...")
+      if (!db) {
+        const instance = await DBClient.getInstance();
+        if (isMounted) setDB(instance);
+        console.info("DB client initialized successfully.")
+      }
     }
-    initDB()
+    initDB();
+    return () => { isMounted = false };
+  }, [db]);
+
+  useEffect(() => {
+    initializeLlmQuery();
   }, []);
-
-  useEffect(() => {
-    initializeLlmQuery(); // Initialize LLMQuery on component mount
-  }, []); // Empty dependency array ensures this runs only once on mount
-
-
-  // Parse initial chords when they change
-  useEffect(() => {
-    if (initialChords) {
-      const chords = initialChords.split(' ').filter(chord => chord.trim());
-      console.debug(`use effect initial chords `, chords)
-
-      const parsed = chords.map(chord => {
-        const chordObj = ChordLib.get(chord)
-        return {
-          ...chordObj,
-          rootDegree: chordObj.rootDegree || 3, 
-        }
-      });
-      console.debug(`use effect parsed chords`, parsed)
-      setParsedChords(prev => {
-        const chordMap = new Map();
-
-        // Add all chords from the previous Set to the Map
-        Array.from(prev).concat(parsed).filter(chord => !chord.empty).forEach(chord => chordMap.set(chord.symbol, chord));
-
-        // Add all chords from the parsed list to the Map
-        parsed.forEach(chord => chordMap.set(chord.symbol, chord));
-      
-        // Create a new Set from the unique values in the Map
-        const newSet = new Set(chordMap.values());
-      
-        console.debug(`setParsedChords newSet `, newSet);
-      
-        return newSet;
-      });
-    }
-  }, [initialChords]);
 
   useEffect(() => {
     Tone.Transport.bpm.value = tempo;
   }, [tempo]);
-
-  const generateChords = async (idea: string, baseChords: Chord[], type: string) => {
-    try {
-    console.debug(`generateChords idea ${idea}`)
-    console.debug(`generateChords baseChords`, baseChords)
-    console.debug(`generateChords type ${type}`)
-
-    const a = await generateChordsAiResponse({ 
-      mood: idea,
-      chords: baseChords,
-      tempo,
-      genre: songStyle
-    })
-    console.debug(`airesponse `, a);
-
-    const chordNames = a!.song_structure_analysis.sections[0].chords
-    
-    // If we have valid initial chords, try to match the key
-    // const selectedProgression = progressions[Math.floor(Math.random() * progressions.length)];
-    // console.debug(`selectedProgression, `, selectedProgression)
-    // // REFACTOR TO USE AI
-    // if (parsedChords.size > 0 && !parsedChords.values().next().value?.empty) {
-    //   // const initialKey = parsedChords.values().next().value.tonic;
-    //   // TODO: Implement key transposition of the progression
-    //   return selectedProgression.join(' - ');
-    // }
-
-    // return selectedProgression.join(' - ');
-    return chordNames.join(' - ')
-    } catch (error: any) {
-      toast({ description: "Error generating chords." })
-      console.debug(`Error generating chords `, error)
-      throw new Error(`Error generating chords.`)
-    }
-  };
-
-  const handleGenerate = async () => {
-    try {
-
-      const newSection: Section = {
-        type: 'verse',
-        chords: await generateChords(songIdea, Array.from(parsedChords.values()), 'verse'),
-        expanded: true
-      };
-      console.debug(`new section `, newSection);
-      addSection(newSection)
-    }
-    catch (error){
-      console.error(`handleGenerate error: `, error)
-    }
-  };
-
-  const addSection = ({ type= 'verse', chords= '', expanded = false }) => {
-    setSections([...sections, { type, chords, expanded }]);
-  };
-
-  const removeSection = (index: number) => {
-    setSections(sections.filter((_, i) => i !== index));
-  };
-
-  const updateSectionType = (index: number, value: string) => {
-    const newSections = [...sections];
-    newSections[index].type = value;
-    setSections(newSections);
-  };
-
-  const toggleExpanded = (index: number) => {
-    const newSections = [...sections];
-    newSections[index].expanded = !newSections[index].expanded;
-    setSections(newSections);
-  };
-
 
 
   // Auto-save functionality
@@ -327,47 +90,219 @@ const SongWriter = () => {
     }, 2000),
     [db, currentSongId]
   );
+  
 
-  // Generate complete song structure
-  const generateCompleteStructure = async () => {
+  const removeChord = useCallback((index: number) => {
+    setSelectedChords((prev) => {
+      const chordList = Array.from(prev);
+      chordList.splice(index, 1);
+      return new Set(chordList);
+    });
+  }, []);
+
+  const handleFirstPlay = useCallback(async () => {
+    if (audioEngineStatus !== 'ready' ) {
+      const started = await requestAudioPermission();
+      if (started) {
+        console.debug("Audio permission granted");
+      } else {
+        console.error("Audio permission denied");
+      }
+    }
+  }, [audioEngineStatus, requestAudioPermission]);
+  
+  const playSection = async (chords: string) => {
+    if (audioEngineStatus === 'loading' || isPlaying) return;
     
-    const airesponse = await generateSongAiResponse({ 
-      mood: songIdea,
-      chords: Array.from(parsedChords),
+    console.debug(`playing chords`)
+    console.debug(`chords: `, chords)
+    console.debug(`is ready ${audioEngineStatus === 'ready' }`)
+    console.debug(`isPlaying ${isPlaying}`)
+
+    // Ensure audio is initialized before playing
+    if (audioEngineStatus !== 'ready' ) {
+      const started = await requestAudioPermission();
+      console.info('started ', started);
+      if (!started) return;
+    }
+    
+    const chordList = chords.split(' - ');
+    console.debug(`chord list ${chordList}`)
+    
+    setIsPlaying(true);
+    setCurrentChordIndex(0);
+    for (let i = 0; i < chordList.length; i++) {
+      // console.debug(`break? ${!isPlaying}`)
+      // if (!isPlaying) break;
+      setCurrentChordIndex(i);
+
+      const chord = { ...ChordLib.get(chordList[i]) };
+      chord.rootDegree = chord.rootDegree || 3
+
+      console.debug(`chord lib chord: ${chord}`)
+      await playChord(chord, 1);
+      console.debug(`played chord`)
+      await new Promise(resolve => setTimeout(resolve, (60 / tempo) * 1000));
+    }
+    setIsPlaying(false);
+    setCurrentChordIndex(0);
+  };
+
+  const stopPlaying = () => {
+    console.debug(`stop playing`)
+    setIsPlaying(false);
+    stopAllNotes();
+  };
+
+  const initializeLlmQuery = async () => {
+    try {
+      console.info('Initializing LLMQuery client...')
+      const llmInstance = await LLMQuery.getInstance(getEnv);
+      if (llmInstance) {
+        setLlm(llmInstance); // Store the instance in state
+        console.info('LLMQuery client initialized successfully.')
+      }
+    } catch (error) {
+      console.error("Error initializing LLMQuery:", error);
+    }
+  };
+
+  const generateChordsAiResponse = async (query: TonestarAiRequest) => {
+    if (!llm) return;
+  
+    try {
+      setIsLoadingGenerate(true);
+      console.debug(`AI query: `, query);
+      const response = await llm.sendRequest(query);
+      return response;
+    } catch (error: any) {
+      toast({ description: "Error generating chords." });
+      console.error("Error querying LLM:", error);
+    } finally {
+      setIsLoadingGenerate(false);
+    }
+  };
+  
+  const generateSongAiResponse = async (query: TonestarAiRequest) => {
+    if (llm) {
+      try {
+        setIsLoadingGenerate(true);
+        console.debug(`ai query: `, query);
+        const response = await llm.sendRequest(query);
+        setIsLoadingGenerate(false);
+        return response;
+      } catch (error: any) {
+        setIsLoadingGenerate(false);
+        console.error("generate song error:", error);
+        toast({ description: "Error generating song." })
+        throw new Error("Error generating song:", error.message)
+      }
+    }
+  };
+
+  const generateChords = async (idea: string, baseChords: Chord[], type: string) => {
+    try {
+    console.debug(`generateChords idea ${idea}`)
+    console.debug(`generateChords baseChords`, baseChords)
+    console.debug(`generateChords type ${type}`)
+
+    const a = await generateChordsAiResponse({ 
+      mood: idea,
+      chords: baseChords,
       tempo,
       genre: songStyle
     })
+    console.debug(`ai response `, a);
+    const chordNames = a!.song_structure_analysis.sections[0].chords
+    return chordNames.join(' - ')
+    } catch (error: any) {
+      toast({ description: "Error generating chords." })
+      console.debug(`Error generating chords `, error)
+      throw new Error(`Error generating chords.`)
+    }
+  };
 
-    console.debug(`airesponse `, airesponse);
+  const handleGenerateSection = async () => {
+    try {
+      const newSection: Section = {
+        type: 'verse',
+        chords: await generateChords(userSongIdea, Array.from(selectedChords.values()), 'verse'),
+        expanded: true
+      };
+      addSection(newSection)
+    }
+    catch (error){
+      console.error(`handleGenerateSection error: `, error)
+    }
+  };
 
+  const addSection = ({ type= 'verse', chords= '', expanded = false }) => {
+    setSections([...sections, { type, chords, expanded }]);
+  };
+
+  const removeSection = (index: number) => {
+    setSections(sections.filter((_, i) => i !== index));
+  };
+
+  const updateSectionType = (index: number, value: string) => {
+    const newSections = [...sections];
+    newSections[index].type = value;
+    setSections(newSections);
+  };
+
+  const toggleExpanded = (index: number) => {
+    const newSections = [...sections];
+    newSections[index].expanded = !newSections[index].expanded;
+    setSections(newSections);
+  };
+
+
+
+  // Generate complete song structure
+  const generateCompleteSong = async () => {
+    const airesponse = await generateSongAiResponse({ 
+      mood: userSongIdea,
+      chords: Array.from(selectedChords),
+      tempo,
+      genre: songStyle
+    })
+    console.debug(`ai response `, airesponse);
     const newSections = airesponse!.song_structure_analysis.sections.map(section => ({
       type: section.name,
       chords: section.chords.join(' - '),
       expanded: false,
     }))
-
     console.debug(`newSections `, newSections)
-    // Generate sections based on style structure
-    // const newSections = style.structure.map(async (type) => ({
-    //   type,
-    //   chords: await generateChords(songIdea, parsedChords, type),
-    //   expanded: false
-    // }));
-    
     setSections((prev) => ([...prev, ...newSections]));
-    setGeneratedSong(newSections)
+    setSong(newSections)
   };
 
-  const textarea = document.getElementById("idea-input");
-  // Add an event listener to the textarea for the 'keydown' event
+  const textarea = typeof document !== 'undefined' ? document.getElementById("idea-input") : null;
   textarea?.addEventListener("keydown", function(event) {
-    // Check if the pressed key is 'Enter' (key code 13)
     if (event.key === "Enter") {
-      event.preventDefault();  // Prevents the default 'Enter' behavior (new line in the textarea)
-      textarea.blur();  // Removes focus from the textarea (blurs it)
+      event.preventDefault(); 
+      textarea.blur(); 
     }
   });
 
+  useEffect(() => {
+    if (db && llm) setIsLoading(false);
+  }, [
+    audioEngineStatus,
+    db,
+    llm
+  ])
+
+  if (isLoading) {
+    return (
+      <div className='flex grow h-full items-center justify-center'>
+        <div className='flex animate-bounce items-center'>
+          <Music className='pr-2 w-10 h-10' />Loading
+        </div>
+      </div>
+    );
+  }
+  
   return (
     <>
     <div className="before:animate-hover after:animate-hover relative gap-6 flex-col z-[-1] flex place-items-center before:fixed before:h-1/2 before:w-full before:translate-x-1/2 before:translate-y-1/2 before:rounded-full before:bg-gradient-radial before:from-white before:to-transparent before:content-[''] after:absolute after:-z-20 after:h-1/2 after:w-full after:translate-x-1/3 after:bg-gradient-conic after:from-orange-200 after:via-orange-200 before:blur-xl after:blur-xl after:content-[''] before:dark:bg-gradient-to-br before:dark:from-transparent before:dark:to-orange-700 before:dark:opacity-20 after:dark:from-orange-900 after:dark:via-[#0141ff] after:dark:opacity-40 sm:before:w-[440px] sm:after:w-[240px] before:lg:h-1/2"></div>
@@ -411,8 +346,8 @@ const SongWriter = () => {
             <Textarea 
               id="idea-input"
               placeholder="Describe your song idea, mood, or theme..."
-              value={songIdea}
-              onChange={(e) => setSongIdea(e.target.value)}
+              value={userSongIdea}
+              onChange={(e) => setUserSongIdea(e.target.value)}
               className="font-medium placeholder:text-foreground cursor-pointer focus:cursor-text z-10 bg-gradient-to-bl from-orange-950 focus:from-orange-600 focus:scale-125 transition-all relative focus:absolute"
               // className="border-4 border-transparent outline-none focus:outline-none focus:border-transparent bg-white animate-gradient-outline resize-none"
             />
@@ -450,51 +385,43 @@ const SongWriter = () => {
 
           <div className="space-y-2">
             <div className="flex gap-4 justify-around">
-              <SelectChordByNotes setSelectedChord={(chord: Chord) => setParsedChords((prev) => {
+              <SelectChordByNotes setSelectedChord={(chord: Chord) => setSelectedChords((prev) => {
                     const chordMap = new Map();
-
                     // Add all chords from the previous Set to the Map
                     Array.from(prev).concat(chord).filter(chord => !chord.empty).forEach(chord => chordMap.set(chord.symbol, chord));
-                  
                     // Create a new Set from the unique values in the Map
                     const newSet = new Set(chordMap.values());
-                  
                     console.debug(`setParsedChords newSet `, newSet);
-                  
                     return newSet;
                   }
                 )} />
 
-              <SelectChord setSelectedChord={(chord: Chord) => setParsedChords((prev) => {
+              <SelectChord setSelectedChord={(chord: Chord) => setSelectedChords((prev) => {
                     const chordMap = new Map();
-
                     // Add all chords from the previous Set to the Map
                     Array.from(prev).concat(chord).filter(chord => !chord.empty).forEach(chord => chordMap.set(chord.symbol, chord));
-                  
                     // Create a new Set from the unique values in the Map
                     const newSet = new Set(chordMap.values());
-                  
                     console.debug(`setParsedChords newSet `, newSet);
-                  
                     return newSet;
                 }
               )} />
             </div>
 
-            {parsedChords.size > 0 && (
+            {selectedChords.size > 0 && (
               <div className="mt-2 py-4 rounded-md">
                 <div className='flex items-center gap-x-6'>
                 <p className="font-medium">Chord Analysis:</p>
-                <Button onClick={() => addSection({ chords: Array.from(parsedChords.values()).map(chord => chord.symbol).join(" - ")})} variant="outline" size="sm">
+                <Button onClick={() => addSection({ chords: Array.from(selectedChords.values()).map(chord => chord.symbol).join(" - ")})} variant="outline" size="sm">
                     <Plus className="w-4 h-4 mr-2" />
                     Add to Section
                   </Button>
                 </div>
                 <div className="grid grid-cols-2 gap-4 mt-2">
-                  {Array.from(parsedChords).map((chord, i) => {
+                  {Array.from(selectedChords).map((chord, i) => {
                     console.debug(`parsedChords map `, chord)
                     return (
-                        <ChordDetails key={i} chord={chord} removeChord={() => removeParsedChord(i)} />
+                        <ChordDetails key={i} chord={chord} removeChord={() => removeChord(i)} />
                     )}
                   )}
                 </div>
@@ -504,18 +431,18 @@ const SongWriter = () => {
 
           <div className="flex gap-4">
             <Button 
-              onClick={handleGenerate} 
+              onClick={handleGenerateSection} 
               className="flex-1"
-              disabled={!songIdea || isLoading}
+              disabled={!userSongIdea || isLoadingGenerate}
             >
               {isLoading ? `Loading...` : `Generate Section`}
             </Button>
             <Button
-              onClick={generateCompleteStructure}
+              onClick={generateCompleteSong}
               className="flex-1"
-              disabled={!songIdea || isLoading}
+              disabled={!userSongIdea || isLoadingGenerate}
             >
-              {isLoading ? `...your next hit` : `Generate Complete Song`}
+              {isLoadingGenerate ? `...your next hit` : `Generate Complete Song`}
             </Button>
           </div>
         </CardContent>
@@ -554,12 +481,12 @@ const SongWriter = () => {
                   variant="outline" 
                   size="sm"
                   onClick={async () => {
-                    if (!audioInitialized) {
+                    if (audioEngineStatus !== 'ready') {
                       await handleFirstPlay();
                     }
-                    return isPlaying ? stopPlaying() : playProgression(sections[index].chords)
+                    return isPlaying ? stopPlaying() : playSection(sections[index].chords)
                   }}
-                  disabled={!isLoaded || !section.chords}
+                  disabled={audioEngineStatus !== 'ready' || !section.chords}
                 >
                   {isPlaying ? (
                     <Pause className="w-4 h-4 mr-2" />
@@ -574,9 +501,9 @@ const SongWriter = () => {
                 variant="ghost" 
                 size="sm"
                 onClick={() => toggleExpanded(index)}
-                disabled={!isLoaded || !section.chords}
+                disabled={!section.chords}
               >
-                {section.expanded ? 'Hide' : 'Show'} Details
+                {section.expanded ? 'Hide Details' : 'Show Details'}
               </Button>
 
               <Button 

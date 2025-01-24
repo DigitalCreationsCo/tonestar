@@ -12,9 +12,7 @@ import { getRequestConfig } from 'next-intl/server';
 
 // Using internationalization in Server Components
 export default getRequestConfig(async ({ locale }) => {
-  console.info('locale ', locale);
   const messages = await (await import(`../locales/${locale}`)).default
-  console.info('messages ', messages);
   return {
     messages
   }

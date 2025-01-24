@@ -2,6 +2,7 @@ import withBundleAnalyzer from '@next/bundle-analyzer';
 import withNextIntl from 'next-intl/plugin';
 import CopyWebpackPlugin from 'copy-webpack-plugin';
 import path from 'path';
+import fs from 'fs'
 
 const __dirname = path.dirname(new URL(import.meta.url).pathname);
 
@@ -22,20 +23,20 @@ export default bundleAnalyzer(
           new CopyWebpackPlugin({
             patterns: [
               {
-                from: path.resolve('node_modules/@audio-samples/piano-pedals/audio/'), // Path to source files in node_modules
-                to: path.resolve(__dirname, 'public/samples/'),  // Destination in the public directory
+                from: path.resolve('node_modules/@audio-samples/piano-pedals/audio/'),
+                to: path.resolve(__dirname, 'public/samples/'), 
               },
               {
                 from: path.resolve('node_modules/@audio-samples/piano-velocity6/audio/'), // Path to source files in node_modules
-                to: path.resolve(__dirname, 'public/samples/'),  // Destination in the public directory
+                to ({ absoluteFilename }) { return path.resolve(__dirname, 'public/samples/', absoluteFilename.split('/').pop().replace('#', 's')); },
               },
               {
-                from: path.resolve('node_modules/@audio-samples/piano-release/audio/'), // Path to source files in node_modules
-                to: path.resolve(__dirname, 'public/samples/'),  // Destination in the public directory
+                from: path.resolve('node_modules/@audio-samples/piano-release/audio/'),
+                to: path.resolve(__dirname, 'public/samples/'), 
               },
               {
-                from: path.resolve('node_modules/@audio-samples/piano-harmonics/audio/'), // Path to source files in node_modules
-                to: path.resolve(__dirname, 'public/samples/'),  // Destination in the public directory
+                from: path.resolve('node_modules/@audio-samples/piano-harmonics/audio/'), 
+                to ({ absoluteFilename }) { return path.resolve(__dirname, 'public/samples/', absoluteFilename.split('/').pop().replace('#', 's')); }, 
               },
             ],
           })

@@ -7,7 +7,8 @@ export function GoToApp(props: ButtonProps) {
   return (
     <Button
       {...props}
-      onClick={() => router.push("/home")}
+      className="load-app-btn"
+      onClick={() => router.push("/app")}
     >
       {"Go to app"}
     </Button>

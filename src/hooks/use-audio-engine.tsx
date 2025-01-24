@@ -1,112 +1,181 @@
 "use client"
+import * as Tone from "tone";
 import { useState, useEffect } from 'react';
 import type { Chord } from '@tonaljs/chord';
-import * as Tone from 'tone';
 import { toast } from '@/hooks/use-toast';
-import { Piano } from '@tonejs/piano';
 import { DBClient } from '@/lib/client';
+import Player from '@/lib/synth'
+
+const SAMPLES_KEY = 'piano-samples';
+const CACHE_VERSION = '1.0.0';
+
+interface AudioEngineState {
+  status: 'loading' | 'ready' | 'failed'; // Track the state
+  loadingProgress: number;
+  hasPermission: boolean;
+}
 
 export const useAudioEngine = () => {
-    const [piano, setPiano] = useState<Piano | null>(null);
-    const [audioContextStarted, setAudioContextStarted] = useState(false);
-    const [isLoaded, setIsLoaded] = useState(false);
+    const [player, setPlayer] = useState<Player | null>(null);
+    const [state, setState] = useState<AudioEngineState>({
+      status: 'loading',
+      loadingProgress: 0,
+      hasPermission: false,
+    });
     const [isPlaying, setIsPlaying] = useState(false);
-  
+
+    const init = async () => {
+      console.log("Initializing audio engine...");
+      const hasPermission = await requestAudioPermission();
+      if (!hasPermission) {
+        console.warn("Audio permission denied, initialization aborted.");
+        return;
+      }
+      console.log("Audio permission granted, proceeding with player initialization...");
+      await initializePlayer();
+    };
+    
     useEffect(() => {
-      let mounted = true;
-  
-      // Piano initialization
-      const setupPiano = async () => {
-        try {
-          const db = await DBClient.getInstance()
-          console.debug('Database instance initialized:', db);
-  
-          let samples = await db.readById('SAMPLES_STORE', {id: 'samples'})
-          console.debug(`cached piano from db `, samples)
-          let piano
-          if (!samples) {
-            console.debug(`no samples `, samples)
-            piano = new Piano({ velocities: 1, release: true })
-            // await db.write<Piano>('SAMPLES_STORE', {...piano, id: 'piano'} as Piano & {id:string})
-            // await db.write('SAMPLES_STORE', {
-            //   samples,
-            //   id: 'samples'}
-            // )
-            console.debug(`cached piano samples`)
-          }
-          else { 
-            console.debug(`yes samples `, samples)
-            piano = new Piano({ velocities: 1, release: true })
-          }
-          piano.toDestination();
-          await piano.load()
-          console.debug(`init piano OK`);
-      
-          // Check if the component is mounted before updating state
-          if (mounted) {
-            console.debug("Piano loaded successfully, setting state...");
-            setPiano(piano);
-            setIsLoaded(true);
-          }
-        } catch (error: any) {
-          console.error('Failed to initialize piano:', error);
-          toast({ description: error.message })
-        }
-      };
-      
-      setupPiano();
-  
+      console.log("useEffect: Running init...");
+      init();
+
       return () => {
-        mounted = false;
-        if (piano) {
-          piano.dispose();
+        if (player) {
+          console.log("Disposing of player...");
+          player.dispose();
+          setPlayer(null)
         }
       };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
-  
-      const startAudioContext = async () => {
-        if (!audioContextStarted) {
-          try {
-            await Tone.start();
-            setAudioContextStarted(true);
-            return true;
-          } catch (error) {
-            console.error('Failed to start AudioContext:', error);
-            return false;
-          }
-        }
+
+    // Request audio permission and initialize context
+    const listenAudioPermission = async () => {
+      try {
+        console.log("Listening for audio permission...");
+
+        Array.from(document.getElementsByClassName("load-app-btn")).forEach((el) => 
+          el.addEventListener("click", () => {
+            console.log("Load button clicked, starting player listener...");
+            player?.startPlayerListner();
+          })
+        );
+        
+        setState(prev => ({ ...prev, hasPermission: true }));
+        console.log("Audio permission granted.");
         return true;
-      };
-    
-      const playChord = async (chord: Chord, duration = 2) => {
-        console.debug(`play chord notes: `, chord.notes)
-        console.debug(`play chord degree: `, chord.rootDegree)
-        if (!piano || !isLoaded) return;
-        
-        // Ensure AudioContext is started before playing
-        const started = await startAudioContext();
-        if (!started) return;
-    
-        const durationSeconds = (60 / Tone.Transport.bpm.value) * duration;
-        const now = Tone.now();
-        
-        chord.notes.forEach(note => {
-          const noteWithOctaveDegree = `${note}${chord.rootDegree}`; // add the scalign octave function for accurate chord intervals
-          console.debug(`note with octave degree ${noteWithOctaveDegree}`)
-  
-          console.debug(`play note `, note);
-          piano.keyDown({ note: noteWithOctaveDegree, velocity: 0.7 });
-          setIsPlaying(true);
-          piano.keyUp({ note: noteWithOctaveDegree, time: now + durationSeconds });
+      } catch (error) {
+        console.error('Audio permission error:', error);
+        toast({ 
+          title: "Audio Permission Required",
+          description: "Please allow audio playback to use the application."
         });
-      };
-    
-      const stopAllNotes = () => {
-        setIsPlaying(false)
-        if (!piano) return;
-        // piano.releaseAll();
-      };
+        return false;
+      }
+    };
   
-    return { playChord, stopAllNotes, isLoaded, startAudioContext, isPlaying, setIsPlaying };
-  };
+    // Request audio permission and initialize context
+    const requestAudioPermission = async () => {
+      try {
+        console.log("Requesting audio permission...");
+        if (Tone.getContext().state !== "running") {
+          await Tone.start();
+          console.log("Starting Tone.js context...");
+        }
+        setState(prev => ({ ...prev, hasPermission: true, status: 'loading' }));
+        console.log("Audio permission granted.");
+        return true;
+      } catch (error) {
+        console.error('Audio permission denied:', error);
+        toast({ 
+          title: "Audio Permission Required",
+          description: "Please allow audio playback to use the application."
+        });
+        return false;
+      }
+    };
+
+    // Initialize piano with loading progress
+    const initializePlayer = async () => {
+      try {
+        console.log("Initializing piano player...");
+        const player = new Player();
+        setPlayer(player);
+        setState(prev => ({ 
+          ...prev, 
+          status: 'ready',
+          loadingProgress: 100,
+        }));
+        console.log("Piano player initialized successfully.");
+      } catch (error: any) {
+        console.error('Piano initialization failed:', error);
+        setState(prev => ({ ...prev, status: 'failed' }));
+        toast({ 
+          title: "Loading Failed",
+          description: error.message
+        });
+      }
+    };
+    
+   
+    
+    const playChord = async (chord: Chord, duration = 1) => {
+      console.log(`playChord: Playing chord ${chord.name} with duration ${duration}s`);
+      if (!player || state.status !== 'ready') {
+        console.warn("Audio engine not ready, reinitializing...");
+        init();
+        toast({ description: "Audio engine not ready" });
+        return;
+      }
+  
+      const durationSeconds = (60 / Tone.Transport.bpm.value) * duration;
+      const now = Tone.now();
+      
+      setIsPlaying(true);
+      console.log(`Playing chord ${chord.name} at time ${now}`);
+      
+      function getNoteWithOctaveDegree (note:string, index:number, chord:Chord) {
+        let currDegree = chord.rootDegree;
+        if (Number(chord["intervals"][index].match(/^\d+/)) >= 8){
+          currDegree++;
+        }
+        return `${note}${currDegree}`;
+      }
+      chord.notes.forEach((note, index) => {
+        const noteWithOctaveDegree = getNoteWithOctaveDegree(note, index, chord);
+        console.log(`Playing note: ${noteWithOctaveDegree} at ${now + (index * 0.01)}s`);
+        player.playNote({ 
+          note: noteWithOctaveDegree, 
+          velocity: 0.7, 
+          time: now + (index * 0.01),
+          duration: durationSeconds 
+        });
+      });
+  
+      // Reset playing state after chord duration
+      setTimeout(() => {
+        setIsPlaying(false);
+        console.log(`Chord ${chord.name} playback finished.`);
+      }, durationSeconds * 1000);
+    };
+    
+    const stopAllNotes = () => {
+      if (!player) {
+        console.warn("stopAllNotes: Player not initialized.");
+        return;
+      }
+      console.log("Stopping all notes...");
+      setIsPlaying(false);
+    };
+  
+    return {
+      listenAudioPermission, 
+      requestAudioPermission,
+      playChord, 
+      stopAllNotes, 
+      audioEngineStatus: state.status, // Consolidated state
+      loadingProgress: state.loadingProgress,
+      hasPermission: state.hasPermission,
+      isPlaying, 
+      setIsPlaying,
+    };
+};

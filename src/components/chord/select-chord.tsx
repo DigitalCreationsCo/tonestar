@@ -1,7 +1,8 @@
+"use client"
 import { useEffect } from "react";
 import { Chord } from "@tonaljs/chord";
 import { useState } from "react";
-import { getChordInfo } from "@/lib/chord";
+import { getChordInfo } from "@/lib/music";
 import { Input } from "../ui/input";
 import { Button } from "../ui/button";
 
@@ -49,7 +50,6 @@ export function SelectChord ({ setSelectedChord }: any) {
             </ul>
             </>
           ) : (
-            // <p>No matching chords found</p>
             <></>
           )}
         </div>

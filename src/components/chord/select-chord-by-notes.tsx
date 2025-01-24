@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import type { Chord } from '@tonaljs/chord';
 import { splitSpaceOrComma } from '@/lib/utils';
-import { analyzeNotesToChords, musicalNotes } from '@/lib/chord';
+import { analyzeNotesToChords, musicalNotes } from '@/lib/music';
 
 export function SelectChordByNotes ({ setSelectedChord }: any) {
     const [userNotes, setUserNotes] = useState<string>("");
@@ -15,29 +15,18 @@ export function SelectChordByNotes ({ setSelectedChord }: any) {
         console.debug(`notes input `, userNotes)
         const validNotes = splitSpaceOrComma(userNotes.toUpperCase()).filter(note => musicalNotes.has(note.toUpperCase()))
         console.debug(`valid notes `, validNotes)
-  
         const matchingChords = analyzeNotesToChords(validNotes)
-        // const matchingChordNames = ChordLib.detect(validNotes)
-        // console.debug(`matching chord names `, matchingChordNames)
-  
-        // const matchingChords = matchingChordNames.map(chord => {
-        //   console.debug(`map matching chords, chord `, chord)
-        //   const match = {...ChordLib.get(chord)}
-        //   match.rootDegree = match.rootDegree || 3;
-        //   return match
-        // })
-        // console.debug(`matching chords `, matchingChords)
-  
         setMatchingChords(matchingChords as Chord[]); // Set matching chords to state
+      } else {
+        setMatchingChords([])
       }
     }, [userNotes]);
   
-    // Handle chord selection
     const handleChordSelection = (chord: Chord) => {
       chord.rootDegree = chord.rootDegree || 3; // Get the root degree of the selected chord
       setSelectedChord(chord);
       console.debug(`Selected chord: ${chord}`);
-      // Further actions can be performed with the midiNote
+      setUserNotes('')
     };
   
     return (
