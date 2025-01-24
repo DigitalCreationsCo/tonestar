@@ -434,7 +434,7 @@ const SongWriter = () => {
               className="flex-1"
               disabled={!userSongIdea || isLoadingGenerate}
             >
-              {isLoading ? `Loading...` : `Generate Section`}
+              {isLoadingGenerate ? `Loading...` : `Generate Section`}
             </Button>
             <Button
               onClick={generateCompleteSong}
