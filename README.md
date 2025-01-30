@@ -1,97 +1,97 @@
-This is a [Next.js](https://nextjs.org/) project bootstrapped with [`create-next-app`](https://github.com/vercel/next.js/tree/canary/packages/create-next-app).
+# Tonestar
 
+Tonestar is a web-based song-writing and song-generation application built with **Next.js** and **Tone.js** that allows users to play chords, generate songs using user-provided song ideas and chords as input, and interact with musical data. It leverages the power of modern web technologies and LLMs to provide an immersive, high-performance audio experience with easy-to-use controls.
 
-## Project Setup
+## Features
 
-Clone the repository or download the project files.
+- **Audio Playback**: Users can play chords, and the application will trigger corresponding piano sounds.
+- **Real-Time Sound Generation**: Using **Tone.js**, the app generates realistic piano sounds, with support for dynamic chord playback.
+- **Sample-Based Sound Engine**: Piano sounds are loaded dynamically from audio samples stored in the `public/samples/` directory.
 
-   ```
-   git clone https://github.com/digitalcreationsco/kickstart-saas.git
-   cd kickstart-saas
-   ```
+## Technologies Used
 
-   Or, if you've downloaded a ZIP file, extract it and navigate to the project directory.
+- **Next.js**: A React framework for building fast, static, and dynamic websites.
+- **Tone.js**: A powerful audio framework used for creating and manipulating sounds directly in the browser.
+- **Webpack**: A module bundler for JavaScript, used here to manage assets and optimize file loading.
+- **React**: JavaScript library for building user interfaces, integrated with Next.js for a seamless experience.
+- **TypeScript**: Used for better type safety and editor support.
 
-### Running the Configuration Wizard
+## Installation
 
-This project includes a configuration wizard to help you set up your environment variables and other necessary configurations quickly and easily.
+To get started with the project, follow the steps below.
 
 ### Prerequisites
 
-- Bash shell (Linux, macOS, or Windows with WSL)
-- Git (optional, for cloning the repository)
+Ensure that you have the following tools installed on your machine:
 
-1. Make the script executable:
+- **Node.js** (version 14 or higher)
+- **npm** (Node package manager)
+- **Next.js** (handled by the dependencies in the project)
+
+### Steps
+
+1. **Clone the repository**:
+
+   ```bash
+   git clone https://github.com/yourusername/tonestar.git
+   cd tonestar
    ```
-   chmod +x config_wizard.sh
+
+2. **Install the dependencies**:
+
+   Run the following command to install all the necessary dependencies for the project:
+
+   ```bash
+   npm install
    ```
 
-2. Run the script:
+3. **Run the development server**:
+
+   To start the application in development mode, use the following command:
+
+   ```bash
+   npm run dev
    ```
-   ./config_wizard.sh
-   ```
 
-### What the Wizard Does
+   The app will now be accessible at `http://localhost:3000`.
 
-The configuration wizard will guide you through setting up:
+## How It Works
 
-- Database configuration (type, host, port, name, username, password)
-- Domain URL
-- OpenAI API key
-- Stripe API keys (publishable and secret)
+1. **Audio Engine Initialization**:
+   - The app requests audio permission using `Tone.start()` and initializes the Tone.js audio context.
+   - Piano samples are loaded from the `public/samples/` directory.
+   - Audio files are dynamically fetched and played based on user interaction.
 
-It will create or update a `.env` file in your project root with these configurations.
+2. **Dynamic Sample Loading**:
+   - Audio samples are loaded dynamically when needed, reducing memory usage and ensuring that only necessary files are loaded into the application.
 
-### After Running the Wizard
+3. **Chord Playback**:
+   - Users can trigger chords, and the app will simulate the piano sound by triggering the corresponding piano notes.
+   - The chord is played in sequence, and a duration parameter determines how long the chord is sustained.
 
-- The wizard will create or update a `.env` file with your configurations.
-- `.env` has been added to `.gitignore` file if you're using git, to keep your secrets safe.
-- You may need to restart your application for the changes to take effect.
+## Usage
 
-### Troubleshooting
+Once the app is running, users can interact with the piano by pressing the keyboard keys or clicking on the piano keys on the UI. The following features are available:
 
-- If you encounter permission issues when trying to run the script, ensure you have the necessary permissions to execute files in the project directory.
-- If you're on Windows and not using WSL, consider using Git Bash or another Bash-compatible shell to run the script.
+- **Play Chords**: Users can play chords by pressing corresponding keys or triggering a chord programmatically.
+- **Stop Notes**: The app allows users to stop all notes playing at once.
+- **Dynamic Playback**: The app supports dynamic loading and playback of piano samples, reducing resource usage by loading only the required files.
 
-### Customizing the Wizard
+## Troubleshooting
 
-If you need to add more configuration options:
+- **Insufficient resources error**: If you encounter memory-related errors such as "Insufficient resources," ensure that you are running the app with sufficient memory allocation. Consider increasing the `--max-old-space-size` option for Node.js.
+- **Network errors when fetching samples**: Ensure that the path to the sample files in the `public/samples/` directory is correct and that the files are accessible.
 
-1. Open `config_wizard.sh` in a text editor.
-2. Add new prompts and update the `.env` file sections as needed.
-3. Save your changes.
+## Contributing
 
-## Development
+If you’d like to contribute to the project, feel free to open an issue or submit a pull request. Contributions are welcome, and we encourage improvements or bug fixes.
 
-First, run the development server:
+1. Fork the repository
+2. Create a new branch
+3. Make your changes and commit
+4. Push to your fork
+5. Create a pull request
 
-```bash
-yarn dev
-```
+## License
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
-
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
-
-This project uses [`next/font`](https://nextjs.org/docs/basic-features/font-optimization) to automatically optimize and load Inter, a custom Google Font.
-
-### Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js/) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/deployment) for more details.
-
-## Support
-
-If you encounter any issues or have questions about the configuration process, please open an issue in the project repository or contact the project maintainer.
-
-Happy Building!
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
