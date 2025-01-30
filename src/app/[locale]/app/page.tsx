@@ -22,6 +22,7 @@ import { ChordDetails } from '@/components/chord/chord-details';
 import { Section } from '@/lib/types';
 // import { BarArrangement } from '@/components/chord/bar-arrangement';
 import { useAudioEngine } from '@/hooks/use-audio-engine';
+import { ComboboxInput } from '@/components/ui/combo-box-input';
 
 const DEFAULT_TEMPO = 120;
 
@@ -459,21 +460,7 @@ const SongWriter = () => {
         {sections.map((section, index) => (
           <Card key={index} className="p-4">
             <div className="flex items-center gap-4">
-              <Select 
-                value={section.type}
-                defaultValue={section.type}
-                onValueChange={(value) => updateSectionType(index, value)}
-              >
-                <SelectTrigger className="w-32">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="verse">Verse</SelectItem>
-                  <SelectItem value="chorus">Chorus</SelectItem>
-                  <SelectItem value="bridge">Bridge</SelectItem>
-                  <SelectItem value="outro">Outro</SelectItem>
-                </SelectContent>
-              </Select>
+              <ComboboxInput values={['verse', 'chorus', 'bridge', 'outro']} placeholder={section.type} defaultValue={section.type} />
 
               {/* {generatedSong && ( */}
                 <Button 

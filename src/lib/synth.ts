@@ -4,6 +4,7 @@ export default class Player {
     player: Tone.PolySynth;
     constructor() {
         this.player = new Tone.PolySynth({ voice: Tone.Synth, maxPolyphony: 8 }).toDestination();
+        this.player.set({ oscillator: { type: 'sine' }})
     }
 
     startPlayer() {
