@@ -20,6 +20,12 @@ export const metadata: Metadata = {
     images: App.ogImage,
     url: App.url
   },
+  twitter: {
+    title: App.name,
+    description: App.description,
+    images: App.ogImage,
+    site: App.url,
+  },
   icons: [
     {
       rel: 'apple-touch-icon',
