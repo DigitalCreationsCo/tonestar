@@ -5,6 +5,7 @@ const localePrefix: LocalePrefix = 'as-needed';
 export const App = {
   name: packageJson.displayName,
   description: packageJson.description, 
+  url: "https://tonestar-music.vercel.app/app",
   locales: [
     {
       id: 'en',
@@ -16,7 +17,8 @@ export const App = {
   ],
   defaultLocale: 'en',
   localePrefix,
-  logoUrl: "/logo.png"
+  logoUrl: "/logo.png",
+  ogImage: "https://github.com/DigitalCreationsCo/tonestar/blob/master/og-image.png?raw=true"
 };
 
 export const AllLocales = App.locales.map((locale) => locale.id);

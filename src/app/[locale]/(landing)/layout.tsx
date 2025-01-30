@@ -13,6 +13,13 @@ const inter = Inter({ subsets: ["latin"] });
 export const metadata: Metadata = {
   title: App.name,
   description: App.description,
+  openGraph: {
+    title: App.name,
+    description: App.description,
+    siteName: App.name,
+    images: App.ogImage,
+    url: App.url
+  },
   icons: [
     {
       rel: 'apple-touch-icon',
